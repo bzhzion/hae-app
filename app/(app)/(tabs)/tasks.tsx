@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard } from 'react-native';
+import { View, Text, ScrollView, FlatList, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
+import CardDetailSheet from '@/components/CardDetailSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -17,7 +18,7 @@ const GTD_PAGES = [
 
 const TAB_W = 88;
 
-interface Card { id: string; title: string; description?: string; }
+interface Card { id: string; title: string; description?: string; due_date?: number | null; stopwatch_total?: number; stopwatch_started_at?: number | null; column_id?: string; project_id?: string; }
 interface Column { id: string; type: string; cards: Card[]; }
 
 export default function TasksScreen() {
@@ -27,6 +28,8 @@ export default function TasksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [addingInColumn, setAddingInColumn] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
+  const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const expandAnim = useRef(new Animated.Value(0)).current;
   const pagerRef = useRef<ScrollView>(null);
   const headerRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -63,6 +66,32 @@ export default function TasksScreen() {
     await fetchProject();
     setRefreshing(false);
   }, [fetchProject]);
+
+  const openCard = (card: Card) => {
+    setActiveCard(card);
+    expandAnim.setValue(0);
+    Animated.spring(expandAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  };
+
+  const closeCard = () => {
+    Animated.timing(expandAnim, { toValue: 0, duration: 160, useNativeDriver: true }).start(() => {
+      setActiveCard(null);
+    });
+  };
+
+  const handleCardUpdated = useCallback((updated: Partial<Card> & { id: string }) => {
+    setColumns(prev => prev.map(col => ({
+      ...col,
+      cards: col.cards.map(c => c.id === updated.id ? { ...c, ...updated } : c),
+    })));
+  }, []);
+
+  const handleCardDeleted = useCallback((cardId: string) => {
+    setColumns(prev => prev.map(col => ({
+      ...col,
+      cards: col.cards.filter(c => c.id !== cardId),
+    })));
+  }, []);
 
   const createCard = useCallback(async (colType: string) => {
     const title = newCardTitle.trim();
@@ -110,6 +139,7 @@ export default function TasksScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <View style={s.headerTop}>
+          <Image source={require('@/assets/icon.png')} style={s.logo} />
           <Text style={s.projectName} numberOfLines={1}>
             {currentProjectName ?? 'Aucun projet'}
           </Text>
@@ -198,12 +228,17 @@ export default function TasksScreen() {
                       </View>
                     ) : null}
                     renderItem={({ item }) => (
-                      <View style={s.card}>
+                      <TouchableOpacity style={s.card} onPress={() => openCard(item)} activeOpacity={0.7}>
                         <Text style={s.cardTitle}>{item.title}</Text>
                         {item.description ? <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-                      </View>
+                        {item.due_date ? (
+                          <View style={s.dueBadge}>
+                            <Text style={s.dueText}>{new Date(item.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                          </View>
+                        ) : null}
+                      </TouchableOpacity>
                     )}
-                    ItemSeparatorComponent={() => <View style={s.sep} />}
+                    ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                   />
                 )}
               </View>
@@ -211,6 +246,19 @@ export default function TasksScreen() {
           })}
         </ScrollView>
       )}
+
+      <CardDetailSheet
+        card={activeCard}
+        expandAnim={expandAnim}
+        token={token ?? ''}
+        serverUrl={serverUrl ?? ''}
+        projectId={currentProjectId ?? ''}
+        insets={insets}
+        onClose={closeCard}
+        onCardUpdated={handleCardUpdated}
+        onCardDeleted={handleCardDeleted}
+        onNeedRefetch={fetchProject}
+      />
     </View>
   );
 }
@@ -221,8 +269,9 @@ const BG = '#FAFAF8';
 const s = StyleSheet.create({
   container:      { flex: 1, backgroundColor: BG },
   header:         { backgroundColor: BG, borderBottomWidth: 1, borderColor: '#EBEBEB' },
-  headerTop:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 8 },
-  projectName:    { fontSize: 13, fontWeight: '700', color: BRAND, letterSpacing: 0.5, flex: 1 },
+  headerTop:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 14, gap: 10 },
+  logo:           { width: 28, height: 28, borderRadius: 6 },
+  projectName:    { fontSize: 13, fontWeight: '700', color: '#1A1A1A', letterSpacing: 0.5, flex: 1 },
   addBtn:         { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   addBtnText:     { color: '#fff', fontSize: 20, lineHeight: 26, fontWeight: '300' },
   quickAdd:       { paddingHorizontal: 4, paddingVertical: 8 },
@@ -238,11 +287,22 @@ const s = StyleSheet.create({
   tabDotActive:   { backgroundColor: BRAND },
   pager:          { flex: 1 },
   page:           { width, flex: 1 },
-  cardList:       { padding: 20 },
-  sep:            { height: 1, backgroundColor: '#EBEBEB', marginHorizontal: 4 },
-  card:           { paddingVertical: 14, paddingHorizontal: 4 },
-  cardTitle:      { fontSize: 15, fontWeight: '500', color: '#1A1A1A', letterSpacing: -0.2 },
-  cardDesc:       { fontSize: 12, color: '#B0B0A8', marginTop: 4, lineHeight: 16 },
+  cardList:       { padding: 16, paddingTop: 12 },
+  card:           {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+      android: { elevation: 2 },
+    }),
+  },
+  cardTitle:      { fontSize: 15, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3, lineHeight: 21 },
+  cardDesc:       { fontSize: 13, color: '#9A9A92', marginTop: 6, lineHeight: 18 },
+  dueBadge:       { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F5D0D0' },
+  dueText:        { fontSize: 11, fontWeight: '600', color: BRAND, letterSpacing: 0.3 },
   empty:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyScrollContent: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 },
   emptyState:     { alignItems: 'center' },
