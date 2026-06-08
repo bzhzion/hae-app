@@ -18,7 +18,8 @@ const GTD_PAGES = [
 
 const TAB_W = 88;
 
-interface Card { id: string; title: string; description?: string; due_date?: number | null; stopwatch_total?: number; stopwatch_started_at?: number | null; column_id?: string; project_id?: string; }
+interface Label { id: string; name: string; color: string; }
+interface Card { id: string; title: string; description?: string; due_date?: number | null; stopwatch_total?: number; stopwatch_started_at?: number | null; column_id?: string; project_id?: string; labels?: Label[]; }
 interface Column { id: string; type: string; cards: Card[]; }
 
 export default function TasksScreen() {
@@ -229,6 +230,15 @@ export default function TasksScreen() {
                     ) : null}
                     renderItem={({ item }) => (
                       <TouchableOpacity style={s.card} onPress={() => openCard(item)} activeOpacity={0.7}>
+                        {(item.labels?.length ?? 0) > 0 && (
+                          <View style={s.cardLabels}>
+                            {item.labels!.map(l => (
+                              <View key={l.id} style={[s.cardLabel, { backgroundColor: l.color + '22', borderColor: l.color + '66' }]}>
+                                <Text style={[s.cardLabelText, { color: l.color }]}>{l.name}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                         <Text style={s.cardTitle}>{item.title}</Text>
                         {item.description ? <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
                         {item.due_date ? (
@@ -299,6 +309,9 @@ const s = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
+  cardLabels:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  cardLabel:      { borderRadius: 5, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
+  cardLabelText:  { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   cardTitle:      { fontSize: 15, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3, lineHeight: 21 },
   cardDesc:       { fontSize: 13, color: '#9A9A92', marginTop: 6, lineHeight: 18 },
   dueBadge:       { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F5D0D0' },
