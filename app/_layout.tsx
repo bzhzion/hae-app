@@ -1,21 +1,10 @@
-import '../global.css';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useAuthStore } from '@/stores/auth';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
-  const token = useAuthStore((s) => s.token);
-
   return (
-    <>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        {token ? (
-          <Stack.Screen name="(app)" />
-        ) : (
-          <Stack.Screen name="(auth)" />
-        )}
-      </Stack>
-    </>
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
   );
 }

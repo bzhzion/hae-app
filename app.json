@@ -3,6 +3,7 @@
     "name": "Hae",
     "slug": "hae-app",
     "version": "0.1.0",
+    "scheme": "hae",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -25,8 +26,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      "expo-status-bar"
+      "expo-router"
     ]
   }
 }

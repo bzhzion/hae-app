@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
 
@@ -12,12 +12,8 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
 
   const login = async () => {
-    if (!serverUrl || !email || !password) {
-      setError('Tous les champs sont requis');
-      return;
-    }
-    setLoading(true);
-    setError('');
+    if (!serverUrl || !email || !password) { setError('Tous les champs sont requis'); return; }
+    setLoading(true); setError('');
     try {
       const res = await fetch(`${serverUrl}/api/auth/login`, {
         method: 'POST',
@@ -27,7 +23,7 @@ export default function LoginScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur de connexion');
       setToken(data.accessToken);
-      router.replace('/(app)/(tabs)/inbox');
+      router.replace('/(app)/(tabs)/tasks');
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -36,57 +32,40 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View className="flex-1 justify-center px-8">
-        <Text className="text-5xl font-bold text-center text-[#A00000] mb-2">해</Text>
-        <Text className="text-center text-gray-500 mb-10">Fais-le.</Text>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={s.inner}>
+        <Text style={s.logo}>해</Text>
+        <Text style={s.tagline}>Fais-le.</Text>
 
-        <Text className="text-xs text-gray-400 uppercase mb-1">Serveur</Text>
-        <TextInput
-          className="border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
-          placeholder="https://hae.exemple.com"
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          autoCapitalize="none"
-          keyboardType="url"
-        />
+        <Text style={s.label}>SERVEUR</Text>
+        <TextInput style={s.input} placeholder="https://hae.exemple.com" value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" />
 
-        <Text className="text-xs text-gray-400 uppercase mb-1">Email</Text>
-        <TextInput
-          className="border border-gray-200 rounded-xl px-4 py-3 mb-4 text-base"
-          placeholder="vous@exemple.com"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+        <Text style={s.label}>EMAIL</Text>
+        <TextInput style={s.input} placeholder="vous@exemple.com" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#9CA3AF" />
 
-        <Text className="text-xs text-gray-400 uppercase mb-1">Mot de passe</Text>
-        <TextInput
-          className="border border-gray-200 rounded-xl px-4 py-3 mb-6 text-base"
-          placeholder="••••••••"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <Text style={s.label}>MOT DE PASSE</Text>
+        <TextInput style={s.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#9CA3AF" />
 
-        {error ? <Text className="text-red-500 text-sm mb-4 text-center">{error}</Text> : null}
+        {error ? <Text style={s.error}>{error}</Text> : null}
 
-        <TouchableOpacity
-          className="bg-[#A00000] rounded-xl py-4 items-center"
-          onPress={login}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-white font-semibold text-base">Se connecter</Text>
-          )}
+        <TouchableOpacity style={s.btn} onPress={login} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Se connecter</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
+
+const BRAND = '#A00000';
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: BRAND },
+  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 32 },
+  logo: { fontSize: 64, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 4 },
+  tagline: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 40 },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4, letterSpacing: 1 },
+  input: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: '#fff', marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.1)' },
+  error: { color: '#FFB3B3', fontSize: 13, textAlign: 'center', marginBottom: 12 },
+  btn: { backgroundColor: '#fff', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  btnText: { color: BRAND, fontWeight: '700', fontSize: 16 },
+});

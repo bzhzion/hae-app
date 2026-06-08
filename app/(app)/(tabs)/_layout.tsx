@@ -1,31 +1,50 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const GTD_TABS = [
-  { name: 'inbox',   label: 'Inbox',   icon: '📥' },
-  { name: 'next',    label: 'Next',    icon: '▶️' },
-  { name: 'someday', label: 'Someday', icon: '☁️' },
-  { name: 'projects',label: 'Projets', icon: '🗂️' },
+const TABS = [
+  { name: 'tasks',    label: 'TASKS'    },
+  { name: 'projects', label: 'PROJETS'  },
+  { name: 'settings', label: 'RÉGLAGES' },
 ];
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
+    <Tabs screenOptions={({ route }) => {
+      const tab = TABS.find(t => t.name === route.name);
+      return {
         headerShown: false,
         tabBarActiveTintColor: '#A00000',
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: { borderTopColor: '#F3F4F6' },
-        tabBarLabel: GTD_TABS.find((t) => t.name === route.name)?.label ?? route.name,
-        tabBarIcon: ({ focused }) => {
-          const tab = GTD_TABS.find((t) => t.name === route.name);
-          return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{tab?.icon}</Text>;
+        tabBarInactiveTintColor: '#B0B0A8',
+        tabBarStyle: {
+          backgroundColor: '#FAFAF8',
+          borderTopWidth: 1,
+          borderTopColor: '#EBEBEB',
+          height: 48 + insets.bottom,
+          paddingBottom: insets.bottom,
         },
-      })}
-    >
-      {GTD_TABS.map((tab) => (
-        <Tabs.Screen key={tab.name} name={tab.name} />
-      ))}
+        tabBarLabel: ({ focused }) => (
+          <Text style={{
+            fontSize: 9,
+            fontWeight: '700',
+            letterSpacing: 1.5,
+            color: focused ? '#1A1A1A' : '#C4C4BE',
+          }}>
+            {tab?.label}
+          </Text>
+        ),
+        tabBarIcon: ({ focused }) => (
+          <View style={{
+            width: 6, height: 6, borderRadius: 3,
+            backgroundColor: focused ? '#A00000' : 'transparent',
+            marginBottom: 2,
+          }} />
+        ),
+      };
+    }}>
+      {TABS.map(t => <Tabs.Screen key={t.name} name={t.name} />)}
     </Tabs>
   );
 }
