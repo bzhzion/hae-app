@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
 
 function CalendarPicker({ value, onChange, onClear, onCancel }: {
   value: number | null;
@@ -150,6 +151,9 @@ export default function CardDetailSheet({
   const [descDraft, setDescDraft] = useState('');
 
   const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [creatingLabel, setCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState('#6366f1');
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [showDuePicker, setShowDuePicker] = useState(false);
@@ -248,6 +252,30 @@ export default function CardDetailSheet({
   const saveDesc = async () => {
     await patchCard({ description: descDraft.trim() || undefined });
     setEditingDesc(false);
+  };
+
+  const createLabel = async () => {
+    const name = newLabelName.trim();
+    if (!name) return;
+    try {
+      const label = await api('POST', `/api/projects/${projectId}/labels`, { name, color: newLabelColor });
+      setProjectLabels(prev => [...prev, label]);
+      setNewLabelName('');
+      setNewLabelColor('#6366f1');
+      setCreatingLabel(false);
+      await toggleLabelById(label);
+    } catch {}
+  };
+
+  const toggleLabelById = async (label: Label) => {
+    if (!detail || !card) return;
+    const has = detail.labels.some(l => l.id === label.id);
+    if (!has) {
+      await api('POST', `/api/cards/${card.id}/labels`, { labelId: label.id });
+      const newLabels = [...detail.labels, label];
+      setDetail(prev => prev ? { ...prev, labels: newLabels } : prev);
+      onCardUpdated({ id: card.id, labels: newLabels } as any);
+    }
   };
 
   const toggleLabel = async (label: Label) => {
@@ -686,21 +714,58 @@ export default function CardDetailSheet({
       </KeyboardAvoidingView>
 
       {/* Label picker */}
-      <Modal visible={showLabelPicker} transparent animationType="slide" onRequestClose={() => setShowLabelPicker(false)}>
-        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowLabelPicker(false)} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <Text style={s.sheetTitle}>Labels du projet</Text>
-          {projectLabels.length === 0 && <Text style={s.dimText}>Aucun label dans ce projet.</Text>}
-          {projectLabels.map(l => {
-            const active = detail?.labels.some(x => x.id === l.id) ?? false;
-            return (
-              <TouchableOpacity key={l.id} style={s.sheetRow} onPress={() => toggleLabel(l)}>
-                <View style={[s.labelDot, { backgroundColor: l.color }]} />
-                <Text style={s.sheetRowText}>{l.name}</Text>
-                {active && <Text style={[s.sheetCheck, { color: l.color }]}>v</Text>}
+      <Modal visible={showLabelPicker} transparent animationType="slide" onRequestClose={() => { setShowLabelPicker(false); setCreatingLabel(false); }}>
+        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => { setShowLabelPicker(false); setCreatingLabel(false); }} />
+        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]}>
+          <Text style={s.sheetTitle}>LABELS DU PROJET</Text>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>Aucun label. Creer le premier.</Text>}
+            {projectLabels.map(l => {
+              const active = detail?.labels.some(x => x.id === l.id) ?? false;
+              return (
+                <TouchableOpacity key={l.id} style={s.sheetRow} onPress={() => toggleLabel(l)}>
+                  <View style={[s.labelDot, { backgroundColor: l.color }]} />
+                  <Text style={s.sheetRowText}>{l.name}</Text>
+                  {active && <Text style={[s.sheetCheck, { color: l.color }]}>v</Text>}
+                </TouchableOpacity>
+              );
+            })}
+            {creatingLabel ? (
+              <View style={s.newLabelForm}>
+                <TextInput
+                  style={s.newLabelInput}
+                  value={newLabelName}
+                  onChangeText={setNewLabelName}
+                  placeholder="Nom du label..."
+                  placeholderTextColor="#C4C4BE"
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={createLabel}
+                />
+                <View style={s.colorRow}>
+                  {PRESET_COLORS.map(c => (
+                    <TouchableOpacity
+                      key={c}
+                      style={[s.colorDot, { backgroundColor: c }, newLabelColor === c && s.colorDotSel]}
+                      onPress={() => setNewLabelColor(c)}
+                    />
+                  ))}
+                </View>
+                <View style={[s.editRow, { marginTop: 8 }]}>
+                  <TouchableOpacity style={s.saveBtn} onPress={createLabel}>
+                    <Text style={s.saveBtnText}>Creer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.cancelBtn} onPress={() => { setCreatingLabel(false); setNewLabelName(''); }}>
+                    <Text style={s.cancelBtnText}>Annuler</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={s.sheetRow} onPress={() => setCreatingLabel(true)}>
+                <Text style={[s.sheetRowText, { color: BRAND, fontWeight: '700' }]}>+ Nouveau label</Text>
               </TouchableOpacity>
-            );
-          })}
+            )}
+          </ScrollView>
         </View>
       </Modal>
 
@@ -840,6 +905,12 @@ const s = StyleSheet.create({
   avatarSmText:     { fontSize: 11, fontWeight: '700', color: BRAND },
 
   sheetTall:        { maxHeight: '75%' },
+
+  newLabelForm:     { paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F0F0EC' },
+  newLabelInput:    { fontSize: 15, color: '#1A1A1A', borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 12 },
+  colorRow:         { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  colorDot:         { width: 28, height: 28, borderRadius: 14 },
+  colorDotSel:      { borderWidth: 3, borderColor: '#1A1A1A' },
 });
 
 const CELL = 40;
