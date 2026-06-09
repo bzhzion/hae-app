@@ -5,6 +5,103 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 
+const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+function CalendarPicker({ value, onChange, onClear, onCancel }: {
+  value: number | null;
+  onChange: (ts: number) => void;
+  onClear: () => void;
+  onCancel: () => void;
+}) {
+  const init = value ? new Date(value) : new Date();
+  const [viewYear, setViewYear] = useState(init.getFullYear());
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
+  const [selDate, setSelDate] = useState<Date | null>(value ? new Date(value) : null);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const offset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < offset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const today = new Date();
+
+  const isSelected = (d: number) => selDate
+    && selDate.getFullYear() === viewYear
+    && selDate.getMonth() === viewMonth
+    && selDate.getDate() === d;
+
+  const isToday = (d: number) =>
+    today.getFullYear() === viewYear
+    && today.getMonth() === viewMonth
+    && today.getDate() === d;
+
+  const pick = (d: number) => {
+    const dt = new Date(viewYear, viewMonth, d, 12, 0, 0);
+    setSelDate(dt);
+    onChange(dt.getTime());
+  };
+
+  return (
+    <View>
+      <View style={cal.nav}>
+        <TouchableOpacity onPress={prevMonth} style={cal.navBtn}>
+          <Text style={cal.navArrow}>‹</Text>
+        </TouchableOpacity>
+        <Text style={cal.monthLabel}>{monthNames[viewMonth]} {viewYear}</Text>
+        <TouchableOpacity onPress={nextMonth} style={cal.navBtn}>
+          <Text style={cal.navArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={cal.grid}>
+        {DAY_NAMES.map((d, i) => (
+          <Text key={i} style={cal.dayName}>{d}</Text>
+        ))}
+        {cells.map((d, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[cal.cell, d && isSelected(d) ? cal.cellSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellToday : undefined]}
+            onPress={() => d && pick(d)}
+            activeOpacity={d ? 0.6 : 1}
+            disabled={!d}
+          >
+            <Text style={[cal.cellText, d && isSelected(d) ? cal.cellTextSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellTextToday : undefined]}>
+              {d ?? ''}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={[s.editRow, { marginTop: 16 }]}>
+        {selDate && (
+          <TouchableOpacity style={s.saveBtn} onPress={() => selDate && onChange(selDate.getTime())}>
+            <Text style={s.saveBtnText}>Confirmer</Text>
+          </TouchableOpacity>
+        )}
+        {value && (
+          <TouchableOpacity style={s.cancelBtn} onPress={onClear}>
+            <Text style={[s.cancelBtnText, { color: BRAND }]}>Effacer</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
+          <Text style={s.cancelBtnText}>Annuler</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
 
@@ -56,7 +153,6 @@ export default function CardDetailSheet({
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [showDuePicker, setShowDuePicker] = useState(false);
-  const [dueDraft, setDueDraft] = useState('');
 
   const [addingChecklist, setAddingChecklist] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
@@ -154,30 +250,20 @@ export default function CardDetailSheet({
     setEditingDesc(false);
   };
 
-  const parseDue = (s: string): number | null => {
-    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return null;
-    const d = new Date(+m[3], +m[2] - 1, +m[1]);
-    return isNaN(d.getTime()) ? null : d.getTime();
-  };
-
-  const saveDue = async (clearIt = false) => {
-    const ts = clearIt ? null : parseDue(dueDraft);
-    await patchCard({ due_date: ts });
-    setShowDuePicker(false);
-  };
-
   const toggleLabel = async (label: Label) => {
     if (!detail || !card) return;
     const has = detail.labels.some(l => l.id === label.id);
     try {
+      let newLabels: Label[];
       if (has) {
         await api('DELETE', `/api/cards/${card.id}/labels/${label.id}`);
-        setDetail(prev => prev ? { ...prev, labels: prev.labels.filter(l => l.id !== label.id) } : prev);
+        newLabels = detail.labels.filter(l => l.id !== label.id);
       } else {
         await api('POST', `/api/cards/${card.id}/labels`, { labelId: label.id });
-        setDetail(prev => prev ? { ...prev, labels: [...prev.labels, label] } : prev);
+        newLabels = [...detail.labels, label];
       }
+      setDetail(prev => prev ? { ...prev, labels: newLabels } : prev);
+      onCardUpdated({ id: card.id, labels: newLabels } as any);
     } catch {}
   };
 
@@ -397,14 +483,7 @@ export default function CardDetailSheet({
 
           {/* Meta: due date + stopwatch */}
           <View style={s.metaRow}>
-            <TouchableOpacity style={[s.metaBadge, isDueOverdue && s.metaBadgeOverdue]} onPress={() => {
-              const d = dueDate;
-              if (d) {
-                const dt = new Date(d);
-                setDueDraft(`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`);
-              } else { setDueDraft(''); }
-              setShowDuePicker(true);
-            }}>
+            <TouchableOpacity style={[s.metaBadge, isDueOverdue && s.metaBadgeOverdue]} onPress={() => setShowDuePicker(true)}>
               <Text style={s.metaIcon}>📅</Text>
               <Text style={[s.metaText, isDueOverdue && { color: BRAND }]}>
                 {dueDate
@@ -661,30 +740,14 @@ export default function CardDetailSheet({
       {/* Due date picker */}
       <Modal visible={showDuePicker} transparent animationType="slide" onRequestClose={() => setShowDuePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowDuePicker(false)} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <Text style={s.sheetTitle}>Echeance</Text>
-          <TextInput
-            style={s.dueDateInput}
-            value={dueDraft}
-            onChangeText={setDueDraft}
-            placeholder="JJ/MM/AAAA"
-            placeholderTextColor="#C4C4BE"
-            keyboardType="numeric"
-            autoFocus
+        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]}>
+          <Text style={s.sheetTitle}>ECHEANCE</Text>
+          <CalendarPicker
+            value={dueDate ?? null}
+            onChange={async (ts) => { await patchCard({ due_date: ts }); setShowDuePicker(false); }}
+            onClear={async () => { await patchCard({ due_date: null }); setShowDuePicker(false); }}
+            onCancel={() => setShowDuePicker(false)}
           />
-          <View style={s.editRow}>
-            <TouchableOpacity style={s.saveBtn} onPress={() => saveDue(false)}>
-              <Text style={s.saveBtnText}>Enregistrer</Text>
-            </TouchableOpacity>
-            {dueDate && (
-              <TouchableOpacity style={s.cancelBtn} onPress={() => saveDue(true)}>
-                <Text style={[s.cancelBtnText, { color: BRAND }]}>Effacer</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={s.cancelBtn} onPress={() => setShowDuePicker(false)}>
-              <Text style={s.cancelBtnText}>Annuler</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </Modal>
     </Animated.View>
@@ -776,5 +839,21 @@ const s = StyleSheet.create({
   avatarSm:         { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND + '18', alignItems: 'center', justifyContent: 'center' },
   avatarSmText:     { fontSize: 11, fontWeight: '700', color: BRAND },
 
-  dueDateInput:     { fontSize: 20, fontWeight: '600', color: '#1A1A1A', textAlign: 'center', borderBottomWidth: 1.5, borderBottomColor: BRAND, paddingVertical: 10, marginBottom: 4, letterSpacing: 2 },
+  sheetTall:        { maxHeight: '75%' },
+});
+
+const CELL = 40;
+const cal = StyleSheet.create({
+  nav:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  navBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0EC' },
+  navArrow:     { fontSize: 22, color: '#1A1A1A', lineHeight: 26, fontWeight: '300' },
+  monthLabel:   { fontSize: 15, fontWeight: '700', color: '#1A1A1A', letterSpacing: -0.2 },
+  grid:         { flexDirection: 'row', flexWrap: 'wrap' },
+  dayName:      { width: `${100/7}%` as any, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#B0B0A8', letterSpacing: 0.5, paddingVertical: 6 },
+  cell:         { width: `${100/7}%` as any, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: CELL / 2 },
+  cellSel:      { backgroundColor: BRAND },
+  cellToday:    { borderWidth: 1.5, borderColor: BRAND },
+  cellText:     { fontSize: 14, fontWeight: '500', color: '#2A2A24' },
+  cellTextSel:  { color: '#fff', fontWeight: '700' },
+  cellTextToday:{ color: BRAND, fontWeight: '700' },
 });
