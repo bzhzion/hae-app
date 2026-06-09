@@ -230,22 +230,26 @@ export default function TasksScreen() {
                     ) : null}
                     renderItem={({ item }) => (
                       <TouchableOpacity style={s.card} onPress={() => openCard(item)} activeOpacity={0.7}>
-                        {(item.labels?.length ?? 0) > 0 && (
-                          <View style={s.cardLabels}>
-                            {item.labels!.map(l => (
-                              <View key={l.id} style={[s.cardLabel, { backgroundColor: l.color + '22', borderColor: l.color + '66' }]}>
-                                <Text style={[s.cardLabelText, { color: l.color }]}>{l.name}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
                         <Text style={s.cardTitle}>{item.title}</Text>
                         {item.description ? <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-                        {item.due_date ? (
-                          <View style={s.dueBadge}>
-                            <Text style={s.dueText}>{new Date(item.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                        {(item.due_date || (item.labels?.length ?? 0) > 0) && (
+                          <View style={s.cardFooter}>
+                            {item.due_date ? (
+                              <View style={s.dueBadge}>
+                                <Text style={s.dueText}>{new Date(item.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                              </View>
+                            ) : <View />}
+                            {(item.labels?.length ?? 0) > 0 && (
+                              <View style={s.cardLabels}>
+                                {item.labels!.map(l => (
+                                  <View key={l.id} style={[s.cardLabel, { backgroundColor: l.color + '22', borderColor: l.color + '66' }]}>
+                                    <Text style={[s.cardLabelText, { color: l.color }]}>{l.name}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
                           </View>
-                        ) : null}
+                        )}
                       </TouchableOpacity>
                     )}
                     ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
@@ -309,12 +313,13 @@ const s = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  cardLabels:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  cardFooter:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  cardLabels:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' },
   cardLabel:      { borderRadius: 5, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
   cardLabelText:  { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   cardTitle:      { fontSize: 15, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3, lineHeight: 21 },
   cardDesc:       { fontSize: 13, color: '#9A9A92', marginTop: 6, lineHeight: 18 },
-  dueBadge:       { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F5D0D0' },
+  dueBadge:       { alignSelf: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F5D0D0' },
   dueText:        { fontSize: 11, fontWeight: '600', color: BRAND, letterSpacing: 0.3 },
   empty:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyScrollContent: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 },
