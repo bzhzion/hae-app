@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio, Video, ResizeMode } from 'expo-av';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -184,7 +185,11 @@ export default function CardDetailSheet({
   const swInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [imageViewerAtt, setImageViewerAtt] = useState<Attachment | null>(null);
+  const [videoViewerAtt, setVideoViewerAtt] = useState<Attachment | null>(null);
   const [uploadingAtt, setUploadingAtt] = useState(false);
+  const [loadingAttId, setLoadingAttId] = useState<string | null>(null);
+  const [playingAttId, setPlayingAttId] = useState<string | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const api = useCallback(async (method: string, path: string, body?: any) => {
     const r = await fetch(`${serverUrl}${path}`, {
@@ -247,7 +252,10 @@ export default function CardDetailSheet({
     setNewComment('');
     reload();
     loadProjectData();
-    return () => clearInterval(swInterval.current!);
+    return () => {
+      clearInterval(swInterval.current!);
+      if (soundRef.current) { soundRef.current.stopAsync().then(() => soundRef.current?.unloadAsync()); soundRef.current = null; }
+    };
   }, [card?.id]);
 
   const patchCard = async (fields: Partial<Card>) => {
@@ -434,6 +442,57 @@ export default function CardDetailSheet({
         } catch {}
       }},
     ]);
+  };
+
+  const stopAudio = async () => {
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
+    setPlayingAttId(null);
+  };
+
+  const toggleAudio = async (att: Attachment) => {
+    if (playingAttId === att.id) { await stopAudio(); return; }
+    await stopAudio();
+    setLoadingAttId(att.id);
+    try {
+      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+      const info = await FileSystem.getInfoAsync(localUri);
+      if (!info.exists) {
+        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync({ uri: localUri }, { shouldPlay: true });
+      soundRef.current = sound;
+      setPlayingAttId(att.id);
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          soundRef.current = null;
+          setPlayingAttId(null);
+        }
+      });
+    } catch { Alert.alert('Erreur', 'Lecture impossible'); }
+    finally { setLoadingAttId(null); }
+  };
+
+  const openVideo = async (att: Attachment) => {
+    await stopAudio();
+    setLoadingAttId(att.id);
+    try {
+      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+      const info = await FileSystem.getInfoAsync(localUri);
+      if (!info.exists) {
+        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      setVideoViewerAtt({ ...att, filename: localUri });
+    } catch { Alert.alert('Erreur', 'Chargement impossible'); }
+    finally { setLoadingAttId(null); }
   };
 
   const postComment = async () => {
@@ -841,17 +900,34 @@ export default function CardDetailSheet({
                   </View>
                 );
               }
+              const isAudio = att.mime_type.startsWith('audio/');
+              const isVideo = att.mime_type.startsWith('video/');
+              const isLoading = loadingAttId === att.id;
+              const isPlaying = playingAttId === att.id;
+              const iconName = att.mime_type === 'application/pdf' ? 'document-text-outline'
+                : isAudio ? 'musical-notes-outline'
+                : isVideo ? 'film-outline'
+                : 'attach-outline';
+              const onChipPress = isAudio ? () => toggleAudio(att)
+                : isVideo ? () => openVideo(att)
+                : () => downloadAttachment(att);
               return (
-                <TouchableOpacity key={att.id} style={s.attChip} onPress={() => downloadAttachment(att)}>
-                  <Ionicons
-                    name={att.mime_type === 'application/pdf' ? 'document-text-outline' : att.mime_type.startsWith('audio/') ? 'musical-note-outline' : att.mime_type.startsWith('video/') ? 'film-outline' : 'attach-outline'}
-                    size={20}
-                    color="#6B6B63"
-                  />
+                <TouchableOpacity key={att.id} style={s.attChip} onPress={onChipPress} disabled={isLoading}>
+                  {isLoading
+                    ? <ActivityIndicator size="small" color={BRAND} style={{ width: 20 }} />
+                    : isPlaying
+                      ? <Ionicons name="pause-circle-outline" size={20} color={BRAND} />
+                      : <Ionicons name={iconName} size={20} color="#6B6B63" />
+                  }
                   <View style={{ flex: 1 }}>
                     <Text style={s.attChipName} numberOfLines={1}>{att.filename}</Text>
-                    <Text style={s.attChipSize}>{(att.size / 1024).toFixed(0)} Ko</Text>
+                    <Text style={s.attChipSize}>{(att.size / 1024).toFixed(0)} Ko{isPlaying ? ' · lecture...' : ''}</Text>
                   </View>
+                  {!isAudio && !isVideo && (
+                    <TouchableOpacity onPress={() => downloadAttachment(att)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="download-outline" size={16} color="#8A8A80" />
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity onPress={() => deleteAttachment(att.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={s.xBtn}>✕</Text>
                   </TouchableOpacity>
@@ -1034,6 +1110,24 @@ export default function CardDetailSheet({
           />
         </View>
       </Modal>
+      {/* Video player modal */}
+      <Modal visible={!!videoViewerAtt} transparent animationType="fade" onRequestClose={() => setVideoViewerAtt(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }} onPress={() => setVideoViewerAtt(null)}>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>✕</Text>
+          </TouchableOpacity>
+          {videoViewerAtt && (
+            <Video
+              source={{ uri: videoViewerAtt.filename }}
+              style={{ width: '100%', height: 300 }}
+              resizeMode={ResizeMode.CONTAIN}
+              useNativeControls
+              shouldPlay
+            />
+          )}
+        </View>
+      </Modal>
+
       {/* Image viewer modal */}
       <Modal visible={!!imageViewerAtt} transparent animationType="fade" onRequestClose={() => setImageViewerAtt(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}>
