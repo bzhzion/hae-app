@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.0] - 2026-06-10
+
+### Chore
+- Alignement de version avec hae-api et hae-mcp (v1.3.0 sur les 3 repos)
+
 ## [0.9.4] - 2026-06-10
 
 ### Added
