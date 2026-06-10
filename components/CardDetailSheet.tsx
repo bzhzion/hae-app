@@ -275,7 +275,7 @@ export default function CardDetailSheet({
   };
 
   const saveDesc = async () => {
-    await patchCard({ description: descDraft.trim() || undefined });
+    await patchCard({ description: descDraft.trim() });
     setEditingDesc(false);
   };
 
