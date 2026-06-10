@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.1] - 2026-06-10
+
+### Chore
+- Alignement version 1.3.1 (fix routing pièces jointes côté API)
+
 ## [1.3.0] - 2026-06-10
 
 ### Chore
