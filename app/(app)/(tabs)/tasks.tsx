@@ -1,34 +1,103 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
 import CardDetailSheet from '@/components/CardDetailSheet';
+import { FlatList } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-const GTD_PAGES = [
-  { key: 'gtd_inbox',   label: 'INBOX'   },
-  { key: 'gtd_next',    label: 'NEXT'    },
-  { key: 'gtd_urgent',  label: 'URGENT'  },
-  { key: 'gtd_someday', label: 'SOMEDAY' },
-  { key: 'gtd_waiting', label: 'WAITING' },
-];
+const GTD_ORDER = ['gtd_inbox','gtd_next','gtd_urgent','gtd_someday','gtd_waiting'];
+const GTD_EN_NAMES: Record<string, string[]> = {
+  gtd_inbox:   ['inbox',   'Inbox'],
+  gtd_next:    ['next',    'Next'],
+  gtd_urgent:  ['urgent',  'Urgent'],
+  gtd_someday: ['someday', 'Someday'],
+  gtd_waiting: ['waiting', 'Waiting'],
+};
+const GTD_DEFAULTS: Record<string, string> = {
+  gtd_inbox:   'À TRIER',
+  gtd_next:    'PROCHAIN',
+  gtd_urgent:  'URGENT',
+  gtd_someday: 'UN JOUR',
+  gtd_waiting: 'EN ATTENTE',
+};
+const GTD_ICONS: Record<string, string> = {
+  gtd_inbox:   'inbox',
+  gtd_next:    'zap',
+  gtd_urgent:  'alert-circle',
+  gtd_someday: 'clock',
+  gtd_waiting: 'pause-circle',
+};
 
-const TAB_W = 88;
+const GTD_HINTS: Record<string, string> = {
+  gtd_inbox:   'Boîte de réception — tout ce qui entre',
+  gtd_next:    'Prochaines actions concrètes',
+  gtd_urgent:  'À faire immédiatement',
+  gtd_someday: 'Idées et projets pour plus tard',
+  gtd_waiting: 'En attente d\'une réponse externe',
+};
+
+const TAB_W = 100;
+
+function fmtSecs(s: number) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function RunningTimer({ total, startedAt }: { total: number; startedAt: number }) {
+  const [display, setDisplay] = useState(() => total + Math.floor((Date.now() - startedAt) / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setDisplay(p => p + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <View style={rt.wrap}>
+      <Feather name="play-circle" size={11} color="#A00000" />
+      <Text style={rt.text}>{fmtSecs(display)}</Text>
+    </View>
+  );
+}
+const rt = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  text: { fontSize: 11, fontWeight: '700', color: '#A00000', letterSpacing: 0.3, fontVariant: ['tabular-nums'] },
+});
 
 interface Label { id: string; name: string; color: string; }
-interface Card { id: string; title: string; description?: string; due_date?: number | null; stopwatch_total?: number; stopwatch_started_at?: number | null; column_id?: string; project_id?: string; labels?: Label[]; }
-interface Column { id: string; type: string; cards: Card[]; }
+interface Card { id: string; title: string; description?: string; due_date?: number | null; stopwatch_total?: number; stopwatch_started_at?: number | null; column_id?: string; project_id?: string; labels?: Label[]; position?: number; checklist_total?: number; checklist_done?: number; comment_count?: number; }
+interface Column { id: string; name: string; type: string; cards: Card[]; }
 
 export default function TasksScreen() {
+  const { t } = useTranslation();
+  const GTD_LABELS: Record<string, string> = {
+    gtd_inbox:   t('tasks.inbox'),
+    gtd_next:    t('tasks.next'),
+    gtd_urgent:  t('tasks.urgent'),
+    gtd_someday: t('tasks.someday'),
+    gtd_waiting: t('tasks.waiting'),
+  };
+  const GTD_HINTS_T: Record<string, string> = {
+    gtd_inbox:   t('tasks.renameHint_inbox'),
+    gtd_next:    t('tasks.renameHint_next'),
+    gtd_urgent:  t('tasks.renameHint_urgent'),
+    gtd_someday: t('tasks.renameHint_someday'),
+    gtd_waiting: t('tasks.renameHint_waiting'),
+  };
   const [page, setPage] = useState(0);
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [addingInColumn, setAddingInColumn] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
+  const [renamingCol, setRenamingCol] = useState<Column | null>(null);
+  const [renameText, setRenameText] = useState('');
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const expandAnim = useRef(new Animated.Value(0)).current;
   const pagerRef = useRef<ScrollView>(null);
@@ -36,7 +105,7 @@ export default function TasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token, serverUrl, logout } = useAuthStore();
-  const { currentProjectId, currentProjectName } = useProjectStore();
+  const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, refreshKey } = useProjectStore();
 
   const fetchProject = useCallback(async () => {
     if (!currentProjectId) return;
@@ -94,10 +163,28 @@ export default function TasksScreen() {
     })));
   }, []);
 
-  const createCard = useCallback(async (colType: string) => {
+  const pages = [
+    ...GTD_ORDER.map(type => columns.find(c => c.type === type)).filter(Boolean) as Column[],
+    ...columns.filter(c => c.type === 'custom'),
+  ];
+
+  const renameColumn = useCallback(async () => {
+    if (!renamingCol || !renameText.trim()) { setRenamingCol(null); return; }
+    try {
+      await fetch(`${serverUrl}/api/columns/${renamingCol.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameText.trim() }),
+      });
+      setColumns(prev => prev.map(c => c.id === renamingCol.id ? { ...c, name: renameText.trim() } : c));
+    } catch (e) { Alert.alert('Erreur', String(e)); }
+    setRenamingCol(null);
+  }, [renamingCol, renameText, serverUrl, token]);
+
+  const createCard = useCallback(async (colId: string) => {
     const title = newCardTitle.trim();
     if (!title) { setAddingInColumn(null); return; }
-    const col = columns.find(c => c.type === colType);
+    const col = columns.find(c => c.id === colId);
     if (!col) return;
     Keyboard.dismiss();
     setAddingInColumn(null);
@@ -113,8 +200,18 @@ export default function TasksScreen() {
     } catch {}
   }, [newCardTitle, columns, serverUrl, token, fetchProject, logout, router]);
 
+
   useEffect(() => { fetchProject(); }, [currentProjectId]);
+  useEffect(() => { if (refreshKey > 0) fetchProject(); }, [refreshKey]);
   useFocusEffect(useCallback(() => { fetchProject(); }, [fetchProject]));
+
+  useEffect(() => {
+    if (!pendingCardId || columns.length === 0) return;
+    const card = columns.flatMap(c => c.cards).find(c => c.id === pendingCardId);
+    if (!card) return;
+    setPendingCard(null);
+    setTimeout(() => openCard(card), 300);
+  }, [pendingCardId, columns]);
 
   const goTo = (i: number) => {
     pagerRef.current?.scrollTo({ x: i * width, animated: true });
@@ -132,31 +229,55 @@ export default function TasksScreen() {
     if (i !== page) { setPage(i); centerTab(i); }
   };
 
-  const getCards = (type: string): Card[] =>
-    columns.find(c => c.type === type)?.cards ?? [];
-
   return (
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <View style={s.headerTop}>
           <Image source={require('@/assets/icon.png')} style={s.logo} />
-          <Text style={s.projectName} numberOfLines={1}>
-            {currentProjectName ?? 'Aucun projet'}
-          </Text>
-          {currentProjectId && (
-            <TouchableOpacity onPress={() => { setAddingInColumn(GTD_PAGES[page].key); setNewCardTitle(''); }} style={s.addBtn}>
-              <Text style={s.addBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity style={s.projectPill} onPress={() => router.push('/(app)/(tabs)/projects')}>
+            <Text style={s.projectName} numberOfLines={1}>
+              {currentProjectName ?? 'Aucun projet'}
+            </Text>
+            <Feather name="chevron-down" size={12} color="#6b7280" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/search')} style={s.roundBtn}>
+            <Feather name="search" size={14} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/calendar')} style={s.roundBtn}>
+            <Feather name="calendar" size={14} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(app)/archives')} style={s.roundBtn}>
+            <Feather name="archive" size={14} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(app)/project-settings')} style={s.roundBtn}>
+            <Feather name="settings" size={14} color="#fff" />
+          </TouchableOpacity>
         </View>
         <ScrollView ref={headerRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs}>
-          {GTD_PAGES.map((p, i) => {
-            const count = getCards(p.key).length;
+          {pages.map((col, i) => {
+            const count = col.cards.length;
+            const isDefaultName = GTD_EN_NAMES[col.type]?.includes(col.name);
+            const label = (isDefaultName || !col.name ? (GTD_LABELS[col.type] ?? col.name) : col.name).toUpperCase();
             return (
-              <TouchableOpacity key={p.key} onPress={() => goTo(i)} style={s.tab}>
+              <TouchableOpacity
+                key={col.id}
+                onPress={() => goTo(i)}
+                onLongPress={() => {
+                  const isDefault = GTD_EN_NAMES[col.type]?.includes(col.name);
+                  setRenamingCol(col);
+                  setRenameText(isDefault || !col.name ? (GTD_LABELS[col.type] ?? col.name) : col.name);
+                }}
+                delayLongPress={500}
+                style={s.tab}
+              >
                 <View style={s.tabRow}>
-                  <Text style={[s.tabLabel, page === i && s.tabLabelActive]}>{p.label}</Text>
+                  <Feather
+                    name={(GTD_ICONS[col.type] ?? 'layers') as any}
+                    size={11}
+                    color={page === i ? '#1A1A1A' : '#C4C4BE'}
+                  />
+                  <Text style={[s.tabLabel, page === i && s.tabLabelActive]}>{label}</Text>
                   {count > 0 && <Text style={[s.tabCount, page === i && s.tabCountActive]}>{count}</Text>}
                 </View>
                 <View style={[s.tabDot, page === i && s.tabDotActive]} />
@@ -168,41 +289,41 @@ export default function TasksScreen() {
 
       {!currentProjectId ? (
         <View style={s.empty}>
-          <Text style={s.emptyMain}>Aucun projet sélectionné.</Text>
-          <Text style={s.emptySub}>Va dans Projets pour en choisir un.</Text>
+          <Text style={s.emptyMain}>{t('tasks.noProject')}</Text>
+          <Text style={s.emptySub}>{t('tasks.goToProjects')}</Text>
         </View>
-      ) : loading ? (
+      ) : loading && columns.length === 0 ? (
         <View style={s.empty}><ActivityIndicator color={BRAND} /></View>
       ) : (
         <ScrollView ref={pagerRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScroll} scrollEventThrottle={16} style={s.pager}>
-          {GTD_PAGES.map((p) => {
-            const cards = getCards(p.key);
+          {pages.map((col) => {
+            const cards = col.cards;
             return (
-              <View key={p.key} style={s.page}>
+              <View key={col.id} style={s.page}>
                 {cards.length === 0 ? (
                   <ScrollView
                     contentContainerStyle={s.emptyScrollContent}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
                   >
-                    {addingInColumn === p.key ? (
+                    {addingInColumn === col.id ? (
                       <View style={[s.quickAdd, { width: width - 40 }]}>
                         <TextInput
                           autoFocus
                           style={s.quickInput}
-                          placeholder="Nouvelle tâche..."
-                          placeholderTextColor="#C4C4BE"
+                          placeholder={t('tasks.newTask')}
+                          placeholderTextColor="#A0A098"
                           value={newCardTitle}
                           onChangeText={setNewCardTitle}
-                          onSubmitEditing={() => createCard(p.key)}
+                          onSubmitEditing={() => createCard(col.id)}
                           onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                           returnKeyType="done"
                         />
                       </View>
                     ) : (
                       <View style={s.emptyState}>
-                        <Text style={s.emptyMain}>Rien ici.</Text>
-                        <Text style={s.emptySub}>Bien joué.</Text>
+                        <Text style={s.emptyMain}>{t('tasks.nothingHere')}</Text>
+                        <Text style={s.emptySub}>{t('tasks.wellDone')}</Text>
                       </View>
                     )}
                   </ScrollView>
@@ -213,32 +334,55 @@ export default function TasksScreen() {
                     style={{ width }}
                     contentContainerStyle={s.cardList}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
-                    ListHeaderComponent={addingInColumn === p.key ? (
+                    ListHeaderComponent={addingInColumn === col.id ? (
                       <View style={s.quickAdd}>
                         <TextInput
                           autoFocus
                           style={s.quickInput}
-                          placeholder="Nouvelle tâche..."
-                          placeholderTextColor="#C4C4BE"
+                          placeholder={t('tasks.newTask')}
+                          placeholderTextColor="#A0A098"
                           value={newCardTitle}
                           onChangeText={setNewCardTitle}
-                          onSubmitEditing={() => createCard(p.key)}
+                          onSubmitEditing={() => createCard(col.id)}
                           onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                           returnKeyType="done"
                         />
                       </View>
                     ) : null}
                     renderItem={({ item }) => (
-                      <TouchableOpacity style={s.card} onPress={() => openCard(item)} activeOpacity={0.7}>
+                      <TouchableOpacity
+                        style={s.card}
+                        onPress={() => openCard(item)}
+                        activeOpacity={0.7}
+                      >
                         <Text style={s.cardTitle}>{item.title}</Text>
                         {item.description ? <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-                        {(item.due_date || (item.labels?.length ?? 0) > 0) && (
+                        {(item.checklist_total ?? 0) > 0 && (
+                          <View style={s.checklistProgress}>
+                            <View style={s.checklistBar}>
+                              <View style={[s.checklistFill, { width: `${Math.round(((item.checklist_done ?? 0) / item.checklist_total!) * 100)}%` as any }]} />
+                            </View>
+                            <Text style={s.checklistCount}>{item.checklist_done ?? 0}/{item.checklist_total}</Text>
+                          </View>
+                        )}
+                        {(item.due_date || item.stopwatch_started_at || (item.labels?.length ?? 0) > 0) && (
                           <View style={s.cardFooter}>
-                            {item.due_date ? (
-                              <View style={s.dueBadge}>
-                                <Text style={s.dueText}>{new Date(item.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
-                              </View>
-                            ) : <View />}
+                            <View style={s.cardFooterLeft}>
+                              {item.due_date ? (
+                                <View style={s.dueBadge}>
+                                  <Text style={s.dueText}>{new Date(item.due_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+                                </View>
+                              ) : null}
+                              {item.stopwatch_started_at ? (
+                                <RunningTimer total={item.stopwatch_total ?? 0} startedAt={item.stopwatch_started_at} />
+                              ) : null}
+                              {(item.comment_count ?? 0) > 0 ? (
+                                <View style={s.commentBubble}>
+                                  <Feather name="message-circle" size={10} color="#6B6B63" />
+                                  <Text style={s.commentBubbleText}>{item.comment_count}</Text>
+                                </View>
+                              ) : null}
+                            </View>
                             {(item.labels?.length ?? 0) > 0 && (
                               <View style={s.cardLabels}>
                                 {item.labels!.map(l => (
@@ -259,6 +403,44 @@ export default function TasksScreen() {
             );
           })}
         </ScrollView>
+      )}
+
+      <Modal visible={!!renamingCol} transparent animationType="fade" onRequestClose={() => setRenamingCol(null)}>
+        <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setRenamingCol(null)}>
+          <TouchableOpacity activeOpacity={1} style={s.modalBox}>
+            <Text style={s.modalTitle}>{t('tasks.renameColumn')}</Text>
+            {renamingCol && GTD_HINTS_T[renamingCol.type] && (
+              <Text style={s.modalHint}>{GTD_HINTS_T[renamingCol.type]}</Text>
+            )}
+            <TextInput
+              style={s.modalInput}
+              value={renameText}
+              onChangeText={setRenameText}
+              autoFocus
+              selectTextOnFocus
+              returnKeyType="done"
+              onSubmitEditing={renameColumn}
+            />
+            <View style={s.modalActions}>
+              <TouchableOpacity onPress={() => setRenamingCol(null)} style={s.modalCancel}>
+                <Text style={s.modalCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={renameColumn} style={s.modalConfirm}>
+                <Text style={s.modalConfirmText}>{t('tasks.rename')}</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {currentProjectId && (
+        <TouchableOpacity
+          style={[s.fab, { bottom: insets.bottom + 20 }]}
+          onPress={() => { setAddingInColumn(pages[page]?.id ?? null); setNewCardTitle(''); }}
+          activeOpacity={0.85}
+        >
+          <Feather name="plus" size={26} color="#fff" />
+        </TouchableOpacity>
       )}
 
       <CardDetailSheet
@@ -285,17 +467,30 @@ const s = StyleSheet.create({
   header:         { backgroundColor: BG, borderBottomWidth: 1, borderColor: '#EBEBEB' },
   headerTop:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 14, gap: 10 },
   logo:           { width: 28, height: 28, borderRadius: 6 },
+  projectPill:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F0F0EC', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   projectName:    { fontSize: 13, fontWeight: '700', color: '#1A1A1A', letterSpacing: 0.5, flex: 1 },
-  addBtn:         { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  addBtnText:     { color: '#fff', fontSize: 20, lineHeight: 26, fontWeight: '300' },
+  roundBtn:       { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  badge:          { position: 'absolute', top: -2, right: -2, backgroundColor: '#fff', borderRadius: 6, minWidth: 12, height: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, borderWidth: 1, borderColor: BRAND },
+  badgeText:      { color: BRAND, fontSize: 7, fontWeight: '700' },
+  fab:            { position: 'absolute', right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 8 }, android: { elevation: 6 } }) },
+  modalBackdrop:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  modalBox:       { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%' },
+  modalTitle:     { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
+  modalHint:      { fontSize: 12, color: '#6B6B63', marginBottom: 16, lineHeight: 17 },
+  modalInput:     { borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#1A1A1A', marginTop: 12 },
+  modalActions:   { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  modalCancel:    { paddingHorizontal: 16, paddingVertical: 8 },
+  modalCancelText:{ fontSize: 14, color: '#6B6B63', fontWeight: '500' },
+  modalConfirm:   { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  modalConfirmText:{ fontSize: 14, color: '#fff', fontWeight: '700' },
   quickAdd:       { paddingHorizontal: 4, paddingVertical: 8 },
   quickInput:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 8 },
   tabs:           { flexDirection: 'row', paddingHorizontal: 20 },
   tab:            { width: TAB_W, paddingBottom: 10, alignItems: 'center' },
   tabRow:         { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tabLabel:       { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, color: '#C4C4BE' },
+  tabLabel:       { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, color: '#8A8A80' },
   tabLabelActive: { color: '#1A1A1A' },
-  tabCount:       { fontSize: 9, fontWeight: '700', color: '#C4C4BE', backgroundColor: '#F0F0EC', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 },
+  tabCount:       { fontSize: 9, fontWeight: '700', color: '#8A8A80', backgroundColor: '#F0F0EC', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 },
   tabCountActive: { color: BRAND, backgroundColor: '#F5E0E0' },
   tabDot:         { width: 3, height: 3, borderRadius: 2, backgroundColor: 'transparent', marginTop: 5 },
   tabDotActive:   { backgroundColor: BRAND },
@@ -314,16 +509,23 @@ const s = StyleSheet.create({
     }),
   },
   cardFooter:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  cardFooterLeft:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  commentBubble:     { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#F0F0EC', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 },
+  commentBubbleText: { fontSize: 10, fontWeight: '600', color: '#6B6B63' },
   cardLabels:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' },
   cardLabel:      { borderRadius: 5, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
   cardLabelText:  { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
   cardTitle:      { fontSize: 15, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3, lineHeight: 21 },
-  cardDesc:       { fontSize: 13, color: '#9A9A92', marginTop: 6, lineHeight: 18 },
+  cardDesc:       { fontSize: 13, color: '#6B6B63', marginTop: 6, lineHeight: 18 },
   dueBadge:       { alignSelf: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F5D0D0' },
-  dueText:        { fontSize: 11, fontWeight: '600', color: BRAND, letterSpacing: 0.3 },
+  dueText:           { fontSize: 11, fontWeight: '600', color: BRAND, letterSpacing: 0.3 },
+  checklistProgress: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  checklistBar:      { flex: 1, height: 4, backgroundColor: '#EBEBEB', borderRadius: 2, overflow: 'hidden' },
+  checklistFill:     { height: 4, backgroundColor: BRAND, borderRadius: 2 },
+  checklistCount:    { fontSize: 10, fontWeight: '600', color: '#6B6B63', minWidth: 28, textAlign: 'right' },
   empty:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyScrollContent: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 },
   emptyState:     { alignItems: 'center' },
   emptyMain:      { fontSize: 18, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3 },
-  emptySub:       { fontSize: 13, color: '#B0B0A8', marginTop: 6 },
+  emptySub:       { fontSize: 13, color: '#6B6B63', marginTop: 6 },
 });

@@ -1,50 +1,71 @@
 import { Tabs } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
-const TABS = [
-  { name: 'tasks',    label: 'TASKS'    },
-  { name: 'projects', label: 'PROJETS'  },
-  { name: 'settings', label: 'RÉGLAGES' },
-];
+const BRAND = '#A00000';
+const INACTIVE = '#8A8A80';
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function TabIcon({ icon, iconActive, focused }: { icon: IoniconsName; iconActive: IoniconsName; focused: boolean }) {
+  return <Ionicons name={focused ? iconActive : icon} size={22} color={focused ? BRAND : INACTIVE} />;
+}
+
+function TabLabel({ label, focused }: { label: string; focused: boolean }) {
+  return (
+    <Text style={{ fontSize: 9, fontWeight: '700', letterSpacing: 1.5, color: focused ? BRAND : INACTIVE }}>
+      {label.toUpperCase()}
+    </Text>
+  );
+}
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
+  const tabBarStyle = {
+    backgroundColor: '#FAFAF8',
+    borderTopWidth: 1,
+    borderTopColor: '#EBEBEB',
+    height: 56 + insets.bottom,
+    paddingBottom: insets.bottom,
+  };
 
   return (
-    <Tabs screenOptions={({ route }) => {
-      const tab = TABS.find(t => t.name === route.name);
-      return {
-        headerShown: false,
-        tabBarActiveTintColor: '#A00000',
-        tabBarInactiveTintColor: '#B0B0A8',
-        tabBarStyle: {
-          backgroundColor: '#FAFAF8',
-          borderTopWidth: 1,
-          borderTopColor: '#EBEBEB',
-          height: 48 + insets.bottom,
-          paddingBottom: insets.bottom,
-        },
-        tabBarLabel: ({ focused }) => (
-          <Text style={{
-            fontSize: 9,
-            fontWeight: '700',
-            letterSpacing: 1.5,
-            color: focused ? '#1A1A1A' : '#C4C4BE',
-          }}>
-            {tab?.label}
-          </Text>
-        ),
-        tabBarIcon: ({ focused }) => (
-          <View style={{
-            width: 6, height: 6, borderRadius: 3,
-            backgroundColor: focused ? '#A00000' : 'transparent',
-            marginBottom: 2,
-          }} />
-        ),
-      };
-    }}>
-      {TABS.map(t => <Tabs.Screen key={t.name} name={t.name} />)}
+    <Tabs screenOptions={{ headerShown: false, tabBarStyle }}>
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          tabBarLabel: ({ focused }) => <TabLabel label={t('tabs.tasks')} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="checkbox-outline" iconActive="checkbox" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="organisations"
+        options={{
+          tabBarLabel: ({ focused }) => <TabLabel label={t('tabs.orgs')} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="people-outline" iconActive="people" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          tabBarLabel: ({ focused }) => <TabLabel label={t('tabs.notifications')} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="notifications-outline" iconActive="notifications" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          tabBarLabel: ({ focused }) => <TabLabel label={t('tabs.settings')} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="person-outline" iconActive="person" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen name="projects"      options={{ href: null }} />
+      <Tabs.Screen name="calendar"      options={{ href: null }} />
+      <Tabs.Screen name="search"        options={{ href: null }} />
     </Tabs>
   );
 }

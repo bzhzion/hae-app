@@ -47,7 +47,9 @@ Pas d'instance imposée. Chacun héberge le sien ou utilise une instance publiqu
 /done               ← Complété
 /projects           ← Projets (vue kanban)
 /projects/:id       ← Board projet (colonnes libres)
-/settings           ← Config serveur + LLM provider
+/organisations      ← Liste des organisations, créer une org
+/organisation/:id   ← Détail org : membres + projets (créer, supprimer, gérer rôles)
+/settings           ← Config serveur, membres projet, gestion utilisateurs (admin)
 ```
 
 ## Fonctionnalités clés
@@ -55,6 +57,8 @@ Pas d'instance imposée. Chacun héberge le sien ou utilise une instance publiqu
 - Saisie texte + dictée vocale (STT) dans l'Inbox
 - Parsing IA de la tâche (titre, date, contexte, projet)
 - Glisser-déposer entre colonnes (kanban)
-- Assignation multi-utilisateurs
+- Assignation multi-utilisateurs + invitations par email
+- Gestion des rôles projet (owner / editor / viewer) depuis les settings
+- Inscription depuis l'écran de login (register mode)
 - Date de rendu + compte à rebours
 - Mode offline avec sync au retour réseau
