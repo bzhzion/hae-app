@@ -1,9 +1,13 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import Marked from 'react-native-marked';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   StyleSheet, Animated, ActivityIndicator, Alert, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -66,22 +70,28 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
           <Text style={cal.navArrow}>›</Text>
         </TouchableOpacity>
       </View>
-      <View style={cal.grid}>
-        {DAY_NAMES.map((d, i) => (
-          <Text key={i} style={cal.dayName}>{d}</Text>
-        ))}
-        {cells.map((d, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[cal.cell, d && isSelected(d) ? cal.cellSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellToday : undefined]}
-            onPress={() => d && pick(d)}
-            activeOpacity={d ? 0.6 : 1}
-            disabled={!d}
-          >
-            <Text style={[cal.cellText, d && isSelected(d) ? cal.cellTextSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellTextToday : undefined]}>
-              {d ?? ''}
-            </Text>
-          </TouchableOpacity>
+      <View>
+        <View style={cal.row}>
+          {DAY_NAMES.map((d, i) => (
+            <Text key={i} style={cal.dayName}>{d}</Text>
+          ))}
+        </View>
+        {Array.from({ length: Math.ceil(cells.length / 7) }, (_, w) => (
+          <View key={w} style={cal.row}>
+            {cells.slice(w * 7, w * 7 + 7).map((d, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[cal.cell, d && isSelected(d) ? cal.cellSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellToday : undefined]}
+                onPress={() => d && pick(d)}
+                activeOpacity={d ? 0.6 : 1}
+                disabled={!d}
+              >
+                <Text style={[cal.cellText, d && isSelected(d) ? cal.cellTextSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellTextToday : undefined]}>
+                  {d ?? ''}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         ))}
       </View>
       <View style={[s.editRow, { marginTop: 16 }]}>
@@ -116,8 +126,9 @@ interface Member { id: string; name: string; avatar_url?: string; }
 interface ChecklistItem { id: string; text: string; is_done: number; }
 interface Checklist { id: string; title: string; items: ChecklistItem[]; }
 interface Comment { id: string; content: string; user_id: string; created_at: number; user_name?: string; }
+interface Attachment { id: string; filename: string; size: number; mime_type: string; created_at: number; }
 interface CardDetail extends Card {
-  labels: Label[]; members: Member[]; checklists: Checklist[]; is_subscribed?: boolean;
+  labels: Label[]; members: Member[]; checklists: Checklist[]; attachments: Attachment[]; is_subscribed?: boolean;
 }
 interface Column { id: string; name: string; type: string; }
 
@@ -165,9 +176,14 @@ export default function CardDetailSheet({
 
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
+  const [editCommentId, setEditCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
 
   const [swDisplay, setSwDisplay] = useState(0);
   const swInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [imageViewerAtt, setImageViewerAtt] = useState<Attachment | null>(null);
+  const [uploadingAtt, setUploadingAtt] = useState(false);
 
   const api = useCallback(async (method: string, path: string, body?: any) => {
     const r = await fetch(`${serverUrl}${path}`, {
@@ -366,6 +382,59 @@ export default function CardDetailSheet({
     } catch {}
   };
 
+  const uploadAttachment = async () => {
+    if (!card) return;
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    setUploadingAtt(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType ?? 'application/octet-stream' } as any);
+      const r = await fetch(`${serverUrl}/api/cards/${card.id}/attachments`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const att = await r.json();
+      setDetail(prev => prev ? { ...prev, attachments: [...(prev.attachments ?? []), att] } : prev);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message ?? 'Upload échoué');
+    } finally {
+      setUploadingAtt(false);
+    }
+  };
+
+  const downloadAttachment = async (att: Attachment) => {
+    const url = `${serverUrl}/api/attachments/${att.id}/download`;
+    const localUri = `${FileSystem.cacheDirectory}${att.filename}`;
+    try {
+      const dl = await FileSystem.downloadAsync(url, localUri, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(dl.uri, { dialogTitle: att.filename });
+      } else {
+        Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
+      }
+    } catch {
+      Alert.alert('Erreur', 'Téléchargement échoué');
+    }
+  };
+
+  const deleteAttachment = (attId: string) => {
+    Alert.alert('Supprimer', 'Supprimer cette pièce jointe ?', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: async () => {
+        try {
+          await api('DELETE', `/api/attachments/${attId}`);
+          setDetail(prev => prev ? { ...prev, attachments: (prev.attachments ?? []).filter(a => a.id !== attId) } : prev);
+        } catch {}
+      }},
+    ]);
+  };
+
   const postComment = async () => {
     if (!newComment.trim() || !card) return;
     setSendingComment(true);
@@ -381,6 +450,16 @@ export default function CardDetailSheet({
     try {
       await api('DELETE', `/api/comments/${commentId}`);
       setComments(prev => prev.filter(c => c.id !== commentId));
+    } catch {}
+  };
+
+  const saveEditComment = async () => {
+    if (!editCommentId || !editCommentText.trim()) return;
+    try {
+      await api('PATCH', `/api/comments/${editCommentId}`, { content: editCommentText.trim() });
+      setComments(prev => prev.map(c => c.id === editCommentId ? { ...c, content: editCommentText.trim() } : c));
+      setEditCommentId(null);
+      setEditCommentText('');
     } catch {}
   };
 
@@ -404,18 +483,43 @@ export default function CardDetailSheet({
     } catch {}
   };
 
-  const deleteCard = () => {
-    Alert.alert('Supprimer', 'Mettre cette carte a la corbeille ?', [
+  const trashColId = projectColumns.find(c => c.type === 'gtd_trash')?.id ?? null;
+  const isInTrash = !!card && !!trashColId && card.column_id === trashColId;
+
+  const archiveCard = () => {
+    Alert.alert('Archiver', 'Archiver cette carte ?', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Corbeille', style: 'destructive', onPress: async () => {
+      { text: 'Archiver', style: 'destructive', onPress: async () => {
         if (!card) return;
         try {
-          await api('DELETE', `/api/cards/${card.id}`);
+          if (trashColId) {
+            await api('PATCH', `/api/cards/${card.id}`, { column_id: trashColId });
+          } else {
+            await api('DELETE', `/api/cards/${card.id}`);
+          }
           onCardDeleted(card.id);
           onClose();
         } catch (e) { Alert.alert('Erreur', String(e)); }
       }},
     ]);
+  };
+
+  const deleteCardPermanently = () => {
+    Alert.alert(
+      '⚠️ Suppression définitive',
+      'Cette action est irréversible. La carte sera supprimée pour toujours.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer définitivement', style: 'destructive', onPress: async () => {
+          if (!card) return;
+          try {
+            await api('DELETE', `/api/cards/${card.id}`);
+            onCardDeleted(card.id);
+            onClose();
+          } catch (e) { Alert.alert('Erreur', String(e)); }
+        }},
+      ]
+    );
   };
 
   const moveCard = async (columnId: string) => {
@@ -455,9 +559,15 @@ export default function CardDetailSheet({
         <TouchableOpacity style={s.topAction} onPress={() => setShowMovePicker(true)}>
           <Text style={s.topActionText}>Deplacer</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCard}>
-          <Text style={[s.topActionText, { color: BRAND }]}>Corbeille</Text>
-        </TouchableOpacity>
+        {isInTrash ? (
+          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCardPermanently}>
+            <Text style={[s.topActionText, { color: BRAND }]}>⚠ Supprimer</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={archiveCard}>
+            <Text style={[s.topActionText, { color: BRAND }]}>Archiver</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -554,14 +664,41 @@ export default function CardDetailSheet({
             <Text style={s.sectionLabel}>DESCRIPTION</Text>
             {editingDesc ? (
               <View style={s.editBlock}>
+                {/* Markdown toolbar */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.mdToolbar} contentContainerStyle={s.mdToolbarContent}>
+                  {([
+                    { label: 'B',   wrap: ['**','**'] },
+                    { label: 'I',   wrap: ['_','_'] },
+                    { label: '`',   wrap: ['`','`'] },
+                    { label: 'H1',  line: '# ' },
+                    { label: 'H2',  line: '## ' },
+                    { label: '- ',  line: '- ' },
+                    { label: '1.',  line: '1. ' },
+                    { label: '> ',  line: '> ' },
+                  ] as any[]).map((t) => (
+                    <TouchableOpacity
+                      key={t.label}
+                      style={s.mdBtn}
+                      onPress={() => {
+                        if (t.wrap) {
+                          setDescDraft(d => d + t.wrap[0] + 'texte' + t.wrap[1]);
+                        } else if (t.line) {
+                          setDescDraft(d => d + (d.endsWith('\n') || d === '' ? '' : '\n') + t.line);
+                        }
+                      }}
+                    >
+                      <Text style={s.mdBtnText}>{t.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
                 <TextInput
                   style={s.descInput}
                   value={descDraft}
                   onChangeText={setDescDraft}
                   multiline
                   autoFocus
-                  placeholder="Ajouter une description..."
-                  placeholderTextColor="#C4C4BE"
+                  placeholder="Ajouter une description (Markdown supporté)..."
+                  placeholderTextColor="#A0A098"
                 />
                 <View style={s.editRow}>
                   <TouchableOpacity style={s.saveBtn} onPress={saveDesc}>
@@ -575,7 +712,7 @@ export default function CardDetailSheet({
             ) : (
               <TouchableOpacity activeOpacity={0.7} onPress={() => { setDescDraft(detail?.description ?? ''); setEditingDesc(true); }}>
                 {detail?.description
-                  ? <Text style={s.descText}>{detail.description}</Text>
+                  ? <Marked value={detail.description} flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }} theme={{ colors: { text: '#4A4A44', link: '#A00000', code: '#F5F5F0', border: '#E8E8E4' } }} styles={{ text: { fontSize: 14, color: '#4A4A44', lineHeight: 22 }, paragraph: { marginBottom: 8 } }} />
                   : <Text style={s.dimText}>Appuyer pour ajouter une description...</Text>}
               </TouchableOpacity>
             )}
@@ -622,7 +759,7 @@ export default function CardDetailSheet({
                       value={newItemText}
                       onChangeText={setNewItemText}
                       placeholder="Nouvel element..."
-                      placeholderTextColor="#C4C4BE"
+                      placeholderTextColor="#A0A098"
                       autoFocus
                       returnKeyType="done"
                       onSubmitEditing={() => addItem(cl.id)}
@@ -651,7 +788,7 @@ export default function CardDetailSheet({
                 value={newChecklistTitle}
                 onChangeText={setNewChecklistTitle}
                 placeholder="Titre de la checklist..."
-                placeholderTextColor="#C4C4BE"
+                placeholderTextColor="#A0A098"
                 autoFocus
                 returnKeyType="done"
                 onSubmitEditing={addChecklist}
@@ -671,6 +808,56 @@ export default function CardDetailSheet({
             </TouchableOpacity>
           )}
 
+          {/* Attachments */}
+          <View style={s.section}>
+            <View style={s.sectionHead}>
+              <Text style={s.sectionLabel}>PIÈCES JOINTES{(detail?.attachments?.length ?? 0) > 0 ? ` (${detail!.attachments.length})` : ''}</Text>
+              <TouchableOpacity onPress={uploadAttachment} disabled={uploadingAtt}>
+                {uploadingAtt
+                  ? <ActivityIndicator size="small" color={BRAND} />
+                  : <Text style={s.sectionPlus}>+</Text>
+                }
+              </TouchableOpacity>
+            </View>
+            {(detail?.attachments ?? []).map(att => {
+              const isImage = att.mime_type.startsWith('image/');
+              if (isImage) {
+                return (
+                  <View key={att.id} style={s.attImageWrap}>
+                    <TouchableOpacity onPress={() => setImageViewerAtt(att)} activeOpacity={0.9}>
+                      <Image
+                        source={{ uri: `${serverUrl}/api/attachments/${att.id}/download`, headers: { Authorization: `Bearer ${token}` } }}
+                        style={s.attImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                    <View style={s.attImageFooter}>
+                      <Text style={s.attFilename} numberOfLines={1}>{att.filename}</Text>
+                      <TouchableOpacity onPress={() => deleteAttachment(att.id)}>
+                        <Text style={s.xBtn}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity key={att.id} style={s.attChip} onPress={() => downloadAttachment(att)}>
+                  <Text style={s.attChipIcon}>{att.mime_type === 'application/pdf' ? '📄' : '📎'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.attChipName} numberOfLines={1}>{att.filename}</Text>
+                    <Text style={s.attChipSize}>{(att.size / 1024).toFixed(0)} Ko</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => deleteAttachment(att.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={s.xBtn}>✕</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+            {(detail?.attachments?.length === 0 || !detail?.attachments) && !uploadingAtt && (
+              <Text style={s.dimText}>Aucune pièce jointe</Text>
+            )}
+          </View>
+
           {/* Comments */}
           <View style={s.section}>
             <Text style={s.sectionLabel}>
@@ -683,11 +870,38 @@ export default function CardDetailSheet({
                   <Text style={s.commentDate}>
                     {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </Text>
-                  <TouchableOpacity style={{ marginLeft: 'auto' }} onPress={() => deleteComment(c.id)}>
-                    <Text style={s.xBtn}>x</Text>
-                  </TouchableOpacity>
+                  <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 8 }}>
+                    {editCommentId !== c.id && (
+                      <TouchableOpacity onPress={() => { setEditCommentId(c.id); setEditCommentText(c.content); }}>
+                        <Text style={[s.xBtn, { color: '#6B6B63' }]}>✎</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => deleteComment(c.id)}>
+                      <Text style={s.xBtn}>x</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <Text style={s.commentText}>{c.content}</Text>
+                {editCommentId === c.id ? (
+                  <View style={{ gap: 6 }}>
+                    <TextInput
+                      style={[s.commentInput, { borderColor: '#A00000', borderWidth: 1 }]}
+                      value={editCommentText}
+                      onChangeText={setEditCommentText}
+                      multiline
+                      autoFocus
+                    />
+                    <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+                      <TouchableOpacity onPress={() => setEditCommentId(null)}>
+                        <Text style={{ fontSize: 12, color: '#6B6B63', fontWeight: '600' }}>Annuler</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={saveEditComment}>
+                        <Text style={{ fontSize: 12, color: '#A00000', fontWeight: '700' }}>Enregistrer</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={s.commentText}>{c.content}</Text>
+                )}
               </View>
             ))}
             <View style={s.commentInputRow}>
@@ -696,7 +910,7 @@ export default function CardDetailSheet({
                 value={newComment}
                 onChangeText={setNewComment}
                 placeholder="Ajouter un commentaire..."
-                placeholderTextColor="#C4C4BE"
+                placeholderTextColor="#A0A098"
                 multiline
               />
               <TouchableOpacity
@@ -737,7 +951,7 @@ export default function CardDetailSheet({
                   value={newLabelName}
                   onChangeText={setNewLabelName}
                   placeholder="Nom du label..."
-                  placeholderTextColor="#C4C4BE"
+                  placeholderTextColor="#A0A098"
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={createLabel}
@@ -815,6 +1029,29 @@ export default function CardDetailSheet({
           />
         </View>
       </Modal>
+      {/* Image viewer modal */}
+      <Modal visible={!!imageViewerAtt} transparent animationType="fade" onRequestClose={() => setImageViewerAtt(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }} onPress={() => setImageViewerAtt(null)}>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>✕</Text>
+          </TouchableOpacity>
+          {imageViewerAtt && (
+            <Image
+              source={{ uri: `${serverUrl}/api/attachments/${imageViewerAtt.id}/download`, headers: { Authorization: `Bearer ${token}` } }}
+              style={{ width: '90%', height: '70%' }}
+              resizeMode="contain"
+            />
+          )}
+          {imageViewerAtt && (
+            <TouchableOpacity
+              style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
+              onPress={() => { if (imageViewerAtt) downloadAttachment(imageViewerAtt); }}
+            >
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>⬇ Télécharger</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -834,7 +1071,7 @@ const s = StyleSheet.create({
   labelChipText:    { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   labelChipX:       { fontSize: 11, fontWeight: '600' },
   addChip:          { borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: '#C4C4BE', paddingHorizontal: 8, paddingVertical: 4 },
-  addChipText:      { fontSize: 11, fontWeight: '600', color: '#9A9A92' },
+  addChipText:      { fontSize: 11, fontWeight: '600', color: '#6B6B63' },
 
   editBlock:        { marginBottom: 4 },
   editRow:          { flexDirection: 'row', gap: 8, marginTop: 8 },
@@ -854,27 +1091,31 @@ const s = StyleSheet.create({
 
   section:          { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#F0F0EC' },
   sectionHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  sectionLabel:     { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#B0B0A8' },
+  sectionLabel:     { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#6B6B63' },
   sectionPlus:      { fontSize: 20, color: BRAND, lineHeight: 22, fontWeight: '300' },
 
   membersRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   avatar:           { width: 36, height: 36, borderRadius: 18, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText:       { fontSize: 12, fontWeight: '700', color: BRAND },
-  dimText:          { fontSize: 13, color: '#C4C4BE', fontStyle: 'italic' },
+  dimText:          { fontSize: 13, color: '#8A8A80', fontStyle: 'italic' },
 
   descInput:        { fontSize: 15, color: '#1A1A1A', borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, padding: 12, minHeight: 80, textAlignVertical: 'top', lineHeight: 22 },
+  mdToolbar:        { marginBottom: 8 },
+  mdToolbarContent: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
+  mdBtn:            { borderRadius: 6, borderWidth: 1, borderColor: '#EBEBEB', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#F8F8F4' },
+  mdBtnText:        { fontSize: 12, fontWeight: '700', color: '#4A4A44', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   descText:         { fontSize: 15, color: '#4A4A44', lineHeight: 22 },
 
   clBar:            { height: 4, backgroundColor: '#EBEBEB', borderRadius: 2, marginBottom: 12, overflow: 'hidden' },
   clFill:           { height: 4, backgroundColor: BRAND, borderRadius: 2 },
-  clProgress:       { fontSize: 11, fontWeight: '600', color: '#B0B0A8' },
+  clProgress:       { fontSize: 11, fontWeight: '600', color: '#6B6B63' },
   clItem:           { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   clCheck:          { width: 19, height: 19, borderRadius: 4, borderWidth: 1.5, borderColor: '#C4C4BE', alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0 },
   clCheckDone:      { backgroundColor: BRAND, borderColor: BRAND },
   clMark:           { fontSize: 11, color: '#fff', fontWeight: '700' },
   clText:           { flex: 1, fontSize: 14, color: '#2A2A24', lineHeight: 20 },
-  clTextDone:       { color: '#C4C4BE', textDecorationLine: 'line-through' },
-  xBtn:             { fontSize: 14, color: '#C4C4BE', fontWeight: '500', paddingHorizontal: 4 },
+  clTextDone:       { color: '#8A8A80', textDecorationLine: 'line-through' },
+  xBtn:             { fontSize: 14, color: '#8A8A80', fontWeight: '500', paddingHorizontal: 4 },
   addItemRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   addItemInput:     { flex: 1, fontSize: 14, borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 6, color: '#1A1A1A' },
   saveSmallBtn:     { backgroundColor: BRAND, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
@@ -883,10 +1124,19 @@ const s = StyleSheet.create({
   addSubBtnText:    { fontSize: 13, fontWeight: '600', color: BRAND, letterSpacing: 0.2 },
   addClInput:       { fontSize: 15, color: '#1A1A1A', borderBottomWidth: 1.5, borderBottomColor: BRAND, paddingVertical: 8, marginBottom: 4 },
 
+  attImageWrap:     { marginBottom: 12, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F0F0EC' },
+  attImage:         { width: '100%', height: 200, marginHorizontal: 0 },
+  attImageFooter:   { flexDirection: 'row', alignItems: 'center', padding: 8, gap: 6 },
+  attFilename:      { flex: 1, fontSize: 12, color: '#4A4A44', fontWeight: '500' },
+  attChip:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F0', borderRadius: 10, padding: 10, marginBottom: 8, gap: 8 },
+  attChipIcon:      { fontSize: 20 },
+  attChipName:      { fontSize: 13, fontWeight: '600', color: '#2A2A24' },
+  attChipSize:      { fontSize: 11, color: '#6B6B63' },
+
   comment:          { backgroundColor: '#F5F5F0', borderRadius: 10, padding: 12, marginBottom: 8 },
   commentHead:      { flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 6 },
   commentAuthor:    { fontSize: 12, fontWeight: '700', color: '#2A2A24' },
-  commentDate:      { fontSize: 11, color: '#B0B0A8' },
+  commentDate:      { fontSize: 11, color: '#6B6B63' },
   commentText:      { fontSize: 14, color: '#2A2A24', lineHeight: 20 },
   commentInputRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
   commentInput:     { flex: 1, fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, padding: 12, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
@@ -896,7 +1146,7 @@ const s = StyleSheet.create({
 
   backdrop:         { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet:            { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '60%' },
-  sheetTitle:       { fontSize: 13, fontWeight: '700', letterSpacing: 1, color: '#B0B0A8', marginBottom: 16 },
+  sheetTitle:       { fontSize: 13, fontWeight: '700', letterSpacing: 1, color: '#6B6B63', marginBottom: 16 },
   sheetRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#F5F5F0' },
   sheetRowText:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', flex: 1 },
   sheetCheck:       { fontSize: 16, fontWeight: '700', color: BRAND },
@@ -919,9 +1169,9 @@ const cal = StyleSheet.create({
   navBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0EC' },
   navArrow:     { fontSize: 22, color: '#1A1A1A', lineHeight: 26, fontWeight: '300' },
   monthLabel:   { fontSize: 15, fontWeight: '700', color: '#1A1A1A', letterSpacing: -0.2 },
-  grid:         { flexDirection: 'row', flexWrap: 'wrap' },
-  dayName:      { width: `${100/7}%` as any, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#B0B0A8', letterSpacing: 0.5, paddingVertical: 6 },
-  cell:         { width: `${100/7}%` as any, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: CELL / 2 },
+  row:          { flexDirection: 'row' },
+  dayName:      { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#6B6B63', letterSpacing: 0.5, paddingVertical: 6 },
+  cell:         { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: CELL / 2 },
   cellSel:      { backgroundColor: BRAND },
   cellToday:    { borderWidth: 1.5, borderColor: BRAND },
   cellText:     { fontSize: 14, fontWeight: '500', color: '#2A2A24' },
