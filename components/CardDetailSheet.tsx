@@ -8,6 +8,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Ionicons } from '@expo/vector-icons';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -842,7 +843,11 @@ export default function CardDetailSheet({
               }
               return (
                 <TouchableOpacity key={att.id} style={s.attChip} onPress={() => downloadAttachment(att)}>
-                  <Text style={s.attChipIcon}>{att.mime_type === 'application/pdf' ? '📄' : '📎'}</Text>
+                  <Ionicons
+                    name={att.mime_type === 'application/pdf' ? 'document-text-outline' : att.mime_type.startsWith('audio/') ? 'musical-note-outline' : att.mime_type.startsWith('video/') ? 'film-outline' : 'attach-outline'}
+                    size={20}
+                    color="#6B6B63"
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={s.attChipName} numberOfLines={1}>{att.filename}</Text>
                     <Text style={s.attChipSize}>{(att.size / 1024).toFixed(0)} Ko</Text>
@@ -1129,7 +1134,7 @@ const s = StyleSheet.create({
   attImageFooter:   { flexDirection: 'row', alignItems: 'center', padding: 8, gap: 6 },
   attFilename:      { flex: 1, fontSize: 12, color: '#4A4A44', fontWeight: '500' },
   attChip:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F0', borderRadius: 10, padding: 10, marginBottom: 8, gap: 8 },
-  attChipIcon:      { fontSize: 20 },
+
   attChipName:      { fontSize: 13, fontWeight: '600', color: '#2A2A24' },
   attChipSize:      { fontSize: 11, color: '#6B6B63' },
 
