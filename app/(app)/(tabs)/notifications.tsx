@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,15 +58,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const api = useCallback(async (method: string, path: string) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok) throw new Error('Erreur');
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,18 +110,19 @@ export default function NotificationsScreen() {
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.title}>{t('notifications.title')}</Text>
         {unread > 0 && (
-          <TouchableOpacity onPress={markAllRead}>
+          <TouchableOpacity accessibilityRole="button" onPress={markAllRead}>
             <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {loading && !refreshing ? (
-        <View style={s.center}><ActivityIndicator color={BRAND} /></View>
+        <View style={s.center}><ActivityIndicator color={BRAND} accessibilityLabel="Loading notifications" /></View>
       ) : (
         <FlatList
           data={notifs}
           keyExtractor={n => n.id}
+          accessibilityRole="list"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
           contentContainerStyle={notifs.length === 0 ? s.emptyContainer : s.list}
           ListEmptyComponent={
@@ -142,6 +136,8 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[s.item, !item.is_read && s.itemUnread]}
+              accessibilityRole="button"
+              accessibilityLabel={(item.card_title ?? t('notifications.fallback')) + ', ' + item.type.replace(/_/g, ' ') + ', ' + (item.is_read ? 'read' : 'unread')}
               onPress={() => markRead(item)}
               activeOpacity={0.7}
             >
@@ -168,7 +164,7 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
               </View>
-              {!item.is_read && <View style={s.dot} />}
+              {!item.is_read && <View style={s.dot} accessible={false} />}
             </TouchableOpacity>
           )}
           ItemSeparatorComponent={() => <View style={s.sep} />}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next';
@@ -92,27 +92,27 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
-        <Text style={s.logo}>해</Text>
+        <Image source={require('../../assets/icon-transparent.png')} style={s.logo} resizeMode="contain" accessible={false} />
         <Text style={s.tagline}>{t('auth.tagline')}</Text>
 
         <Text style={s.label}>{t('auth.serverUrl')}</Text>
-        <TextInput style={s.input} placeholder="https://hae.exemple.com" value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" />
+        <TextInput style={s.input} placeholder="https://hae.exemple.com" value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" accessibilityLabel="Server URL" />
 
         {mode === 'register' && (
           <>
             <Text style={s.label}>{t('auth.name')}</Text>
-            <TextInput style={s.input} placeholder="Votre nom" value={name} onChangeText={setName} autoCapitalize="words" placeholderTextColor="#9CA3AF" />
+            <TextInput style={s.input} placeholder="Votre nom" value={name} onChangeText={setName} autoCapitalize="words" placeholderTextColor="#9CA3AF" accessibilityLabel="Your name" />
           </>
         )}
 
         <Text style={s.label}>{t('auth.email')}</Text>
-        <TextInput style={s.input} placeholder="vous@exemple.com" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#9CA3AF" />
+        <TextInput style={s.input} placeholder="vous@exemple.com" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#9CA3AF" accessibilityLabel="Email address" />
 
         <Text style={s.label}>{t('auth.password')}</Text>
-        <TextInput style={s.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#9CA3AF" />
+        <TextInput style={s.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#9CA3AF" accessibilityLabel="Password" />
 
         {mode === 'login' && (
-          <TouchableOpacity style={s.rememberRow} onPress={() => setRememberMe(v => !v)}>
+          <TouchableOpacity style={s.rememberRow} onPress={() => setRememberMe(v => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: rememberMe }} accessibilityLabel="Remember me">
             <View style={[s.checkbox, rememberMe && s.checkboxChecked]}>
               {rememberMe && <Text style={s.checkmark}>✓</Text>}
             </View>
@@ -122,13 +122,13 @@ export default function LoginScreen() {
 
         {error ? <Text style={s.error}>{error}</Text> : null}
 
-        <TouchableOpacity style={s.btn} onPress={submit} disabled={loading}>
+        <TouchableOpacity style={s.btn} onPress={submit} disabled={loading} accessibilityRole="button" accessibilityState={{ disabled: loading }}>
           {loading ? <ActivityIndicator color={BRAND} /> : (
             <Text style={s.btnText}>{mode === 'login' ? t('auth.login') : t('auth.createAccount')}</Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.switchBtn} onPress={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}>
+        <TouchableOpacity style={s.switchBtn} onPress={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }} accessibilityRole="button">
           <Text style={s.switchText}>
             {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
           </Text>
@@ -143,7 +143,7 @@ const BRAND = '#A00000';
 const s = StyleSheet.create({
   container:       { flex: 1, backgroundColor: BRAND },
   inner:           { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 48 },
-  logo:            { fontSize: 64, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 4 },
+  logo:            { width: 120, height: 120, alignSelf: 'center', marginBottom: 4 },
   tagline:         { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 40 },
   label:           { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4, letterSpacing: 1 },
   input:           { borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: '#fff', marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.1)' },

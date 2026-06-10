@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
 import UserAvatar from '@/components/UserAvatar';
+import AiConfigSection from '@/components/AiConfigSection';
 
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
@@ -34,16 +36,7 @@ export default function ProjectSettingsScreen() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? t('common.error')); }
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token, t]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const loadMembers = useCallback(async () => {
     if (!currentProjectId) return;
@@ -117,7 +110,7 @@ export default function ProjectSettingsScreen() {
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Back" accessibilityRole="button">
           <Feather name="arrow-left" size={22} color="#1A1A1A" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -133,17 +126,17 @@ export default function ProjectSettingsScreen() {
           <>
             <View style={s.sectionHead}>
               <Text style={s.sectionLabel}>{t('projectSettings.members').toUpperCase()}</Text>
-              <TouchableOpacity onPress={() => { setShowInvite(true); setInviteError(''); setInviteUserId(null); setInviteEmail(''); }}>
+              <TouchableOpacity onPress={() => { setShowInvite(true); setInviteError(''); setInviteUserId(null); setInviteEmail(''); }} accessibilityRole="button">
                 <Text style={s.sectionAction}>{t('projectSettings.invite')}</Text>
               </TouchableOpacity>
             </View>
             {loadingMembers
-              ? <ActivityIndicator color={BRAND} style={{ marginVertical: 12 }} />
+              ? <ActivityIndicator color={BRAND} style={{ marginVertical: 12 }} accessibilityLabel="Loading members" />
               : members.map(m => (
                 <View key={m.id} style={s.row}>
                   <UserAvatar name={m.name} avatarUrl={m.avatar_url} serverUrl={serverUrl} token={token ?? undefined} size={36} />
                   <View style={{ flex: 1 }}>
-                    <Text style={s.rowName}>{m.name}{m.id === me?.id ? ` (${t('projectSettings.me')})` : ''}</Text>
+                    <Text style={s.rowName}>{m.name}{m.id === me?.id ? ` ${t('projectSettings.me')}` : ''}</Text>
                     <Text style={s.rowSub}>{m.email}</Text>
                   </View>
                   <TouchableOpacity
@@ -153,11 +146,13 @@ export default function ProjectSettingsScreen() {
                       { text: 'editor', onPress: () => changeRole(m.id, 'editor') },
                       { text: t('common.cancel'), style: 'cancel' },
                     ])}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Role: ${m.role}. Tap to change.`}
                   >
                     <Text style={[s.roleText, { color: ROLE_COLORS[m.role] ?? '#6b7280' }]}>{m.role}</Text>
                   </TouchableOpacity>
                   {m.id !== me?.id && m.role !== 'owner' && (
-                    <TouchableOpacity style={s.removeBtn} onPress={() => removeMember(m.id, m.name)}>
+                    <TouchableOpacity style={s.removeBtn} onPress={() => removeMember(m.id, m.name)} accessibilityLabel={`Remove ${m.name}`} accessibilityRole="button">
                       <Feather name="x" size={13} color="#6B6B63" />
                     </TouchableOpacity>
                   )}
@@ -166,7 +161,15 @@ export default function ProjectSettingsScreen() {
             }
 
             <View style={s.divider} />
-            <TouchableOpacity style={s.archiveBtn} onPress={() => router.push('/(app)/archives')}>
+            <AiConfigSection
+              api={api}
+              configPath={`/api/projects/${currentProjectId}/ai-config`}
+              titleKey="titleProject"
+              subtitleKey="subtitleProject"
+            />
+
+            <View style={s.divider} />
+            <TouchableOpacity style={s.archiveBtn} onPress={() => router.push('/(app)/archives')} accessibilityRole="button">
               <View style={s.archiveBtnLeft}>
                 <Feather name="archive" size={16} color="#4A4A44" />
                 <Text style={s.archiveBtnText}>{t('projectSettings.archives')}</Text>
@@ -181,7 +184,7 @@ export default function ProjectSettingsScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowInvite(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <View style={[s.sheet, { paddingBottom: insets.bottom + 24, maxHeight: '80%' }]}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 24, maxHeight: '80%' }]} accessibilityViewIsModal={true}>
               <Text style={s.sheetTitle}>{t('projectSettings.addToProject').toUpperCase()}</Text>
               {currentProjectOwnerType === 'organisation' ? (
                 <>
@@ -193,6 +196,8 @@ export default function ProjectSettingsScreen() {
                         key={c.id}
                         style={[s.candidateRow, inviteUserId === c.id && s.candidateRowSel]}
                         onPress={() => setInviteUserId(inviteUserId === c.id ? null : c.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: inviteUserId === c.id }}
                       >
                         <View style={s.candidateAvatar}>
                           <Text style={s.candidateAvatarText}>{c.name.slice(0, 2).toUpperCase()}</Text>
@@ -218,13 +223,14 @@ export default function ProjectSettingsScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoFocus
+                    accessibilityLabel="Member email address"
                   />
                 </>
               )}
               <Text style={[s.sectionLabel, { marginTop: 12 }]}>{t('projectSettings.role').toUpperCase()}</Text>
               <View style={s.roleRow}>
                 {(['viewer', 'editor'] as const).map(r => (
-                  <TouchableOpacity key={r} style={[s.roleOption, inviteRole === r && s.roleOptionSel]} onPress={() => setInviteRole(r)}>
+                  <TouchableOpacity key={r} style={[s.roleOption, inviteRole === r && s.roleOptionSel]} onPress={() => setInviteRole(r)} accessibilityRole="radio" accessibilityState={{ checked: inviteRole === r }}>
                     <Text style={[s.roleOptionText, inviteRole === r && s.roleOptionTextSel]}>{r}</Text>
                   </TouchableOpacity>
                 ))}

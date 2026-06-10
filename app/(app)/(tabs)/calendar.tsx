@@ -113,18 +113,18 @@ export default function CalendarScreen() {
           <View style={{ width: 38 }} />
         </View>
         <View style={s.monthNav}>
-          <TouchableOpacity onPress={prevMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={prevMonth} style={s.navBtn} accessibilityLabel="Previous month" accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Feather name="chevron-left" size={20} color="#4A4A44" />
           </TouchableOpacity>
           <View style={s.monthTitleRow}>
             <Text style={s.monthTitle}>{months[month]} {year}</Text>
             {(year !== now.getFullYear() || month !== now.getMonth()) && (
-              <TouchableOpacity style={s.todayBtn} onPress={() => { setYear(now.getFullYear()); setMonth(now.getMonth()); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity style={s.todayBtn} accessibilityLabel="Back to current month" accessibilityRole="button" onPress={() => { setYear(now.getFullYear()); setMonth(now.getMonth()); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Feather name="rotate-ccw" size={13} color={BRAND} />
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity onPress={nextMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={nextMonth} style={s.navBtn} accessibilityLabel="Next month" accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Feather name="chevron-right" size={20} color="#4A4A44" />
           </TouchableOpacity>
         </View>
@@ -148,12 +148,12 @@ export default function CalendarScreen() {
               <View key={key} style={[s.cell, isToday && s.cellToday]}>
                 <Text style={[s.dayNum, isToday && s.dayNumToday]}>{day}</Text>
                 {daycards.slice(0, 3).map(c => (
-                  <TouchableOpacity key={c.id} onPress={() => openCard(c)} style={[s.chip, isPast && s.chipOverdue]}>
+                  <TouchableOpacity key={c.id} onPress={() => openCard(c)} style={[s.chip, isPast && s.chipOverdue]} accessibilityRole="button" accessibilityLabel={c.title}>
                     <Text style={[s.chipText, isPast && s.chipTextOverdue]} numberOfLines={1}>{c.title}</Text>
                   </TouchableOpacity>
                 ))}
                 {daycards.length > 3 && (
-                  <TouchableOpacity onPress={() => { setOverflowCards(daycards); setShowOverflow(true); }}>
+                  <TouchableOpacity onPress={() => { setOverflowCards(daycards); setShowOverflow(true); }} accessibilityRole="button" accessibilityLabel={`Show ${daycards.length - 3} more cards`}>
                     <Text style={s.more}>+{daycards.length - 3}</Text>
                   </TouchableOpacity>
                 )}
@@ -162,16 +162,16 @@ export default function CalendarScreen() {
           })}
         </View>
 
-        {loading && <ActivityIndicator color={BRAND} style={{ margin: 20 }} />}
+        {loading && <ActivityIndicator color={BRAND} style={{ margin: 20 }} accessibilityLabel="Loading" />}
       </ScrollView>
 
       {/* Overflow modal */}
       <Modal visible={showOverflow} transparent animationType="fade" onRequestClose={() => setShowOverflow(false)}>
-        <TouchableOpacity style={s.overflowBackdrop} activeOpacity={1} onPress={() => setShowOverflow(false)}>
+        <TouchableOpacity style={s.overflowBackdrop} activeOpacity={1} accessibilityLabel="Close" accessibilityRole="button" onPress={() => setShowOverflow(false)}>
           <View style={s.overflowSheet}>
             <Text style={s.overflowTitle}>{t('calendar.allCards')}</Text>
             {overflowCards.map(c => (
-              <TouchableOpacity key={c.id} style={s.overflowItem} onPress={() => { setShowOverflow(false); setTimeout(() => openCard(c), 100); }}>
+              <TouchableOpacity key={c.id} style={s.overflowItem} accessibilityRole="button" accessibilityLabel={c.title} onPress={() => { setShowOverflow(false); setTimeout(() => openCard(c), 100); }}>
                 <Text style={s.overflowItemText}>{c.title}</Text>
               </TouchableOpacity>
             ))}

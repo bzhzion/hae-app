@@ -122,13 +122,14 @@ export default function SearchScreen() {
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Back" accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name="arrow-left" size={22} color="#1A1A1A" />
         </TouchableOpacity>
         <TextInput
           style={s.searchInput}
           placeholder={t('search.placeholder')}
           placeholderTextColor="#A0A098"
+          accessibilityLabel="Search cards"
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => saveToHistory(query)}
@@ -137,13 +138,15 @@ export default function SearchScreen() {
           autoCorrect={false}
           autoFocus
         />
-        {loading && <ActivityIndicator color={BRAND} style={{ marginLeft: 8 }} />}
+        {loading && <ActivityIndicator color={BRAND} style={{ marginLeft: 8 }} accessibilityLabel="Loading" />}
       </View>
 
       {/* Filtres projets */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterRow} contentContainerStyle={s.filterContent}>
         <TouchableOpacity
           style={[s.chip, !selectedProject && s.chipActive]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: !selectedProject }}
           onPress={() => setSelectedProject(null)}
         >
           <Text style={[s.chipText, !selectedProject && s.chipTextActive]}>{t('search.all')}</Text>
@@ -152,6 +155,8 @@ export default function SearchScreen() {
           <TouchableOpacity
             key={p.id}
             style={[s.chip, selectedProject === p.name && s.chipActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedProject === p.name }}
             onPress={() => setSelectedProject(selectedProject === p.name ? null : p.name)}
           >
             <Text style={[s.chipText, selectedProject === p.name && s.chipTextActive]}>{p.name}</Text>
@@ -166,9 +171,12 @@ export default function SearchScreen() {
             <TouchableOpacity
               key={l.id}
               style={[s.labelChip, { borderColor: l.color + '88', backgroundColor: selectedLabel === l.id ? l.color + '22' : 'transparent' }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedLabel === l.id }}
+              accessibilityLabel={l.name}
               onPress={() => setSelectedLabel(selectedLabel === l.id ? null : l.id)}
             >
-              <View style={[s.labelDot, { backgroundColor: l.color }]} />
+              <View style={[s.labelDot, { backgroundColor: l.color }]} accessible={false} />
               <Text style={[s.chipText, { color: l.color }]}>{l.name}</Text>
             </TouchableOpacity>
           ))}
@@ -178,6 +186,7 @@ export default function SearchScreen() {
       <FlatList
         data={results}
         keyExtractor={c => c.id}
+        accessibilityRole="list"
         contentContainerStyle={results.length === 0 ? undefined : s.list}
         ListEmptyComponent={
           <View style={s.emptyWrap}>
@@ -199,7 +208,7 @@ export default function SearchScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity style={s.result} onPress={() => openCard(item)} activeOpacity={0.7}>
+          <TouchableOpacity style={s.result} accessibilityRole="button" accessibilityLabel={item.title + ' in ' + item.project_name} onPress={() => openCard(item)} activeOpacity={0.7}>
             <View style={s.breadcrumb}>
               <Text style={s.breadText}>{item.project_name}</Text>
               <Text style={s.breadSep}> › </Text>

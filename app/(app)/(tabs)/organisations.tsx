@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, StatusBar, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,16 +26,7 @@ export default function OrganisationsScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? t('common.error')); }
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token, t]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,13 +57,13 @@ export default function OrganisationsScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.title}>{t('orgs.title')}</Text>
-        <TouchableOpacity style={s.addBtn} onPress={() => { setShowCreate(true); setCreateError(''); setNewName(''); setNewDesc(''); }}>
+        <TouchableOpacity style={s.addBtn} accessibilityRole="button" onPress={() => { setShowCreate(true); setCreateError(''); setNewName(''); setNewDesc(''); }}>
           <Text style={s.addBtnText}>+ {t('orgs.create')}</Text>
         </TouchableOpacity>
       </View>
 
       {loading
-        ? <View style={s.center}><ActivityIndicator color={BRAND} /></View>
+        ? <View style={s.center}><ActivityIndicator color={BRAND} accessibilityLabel="Loading organisations" /></View>
         : (
           <FlatList
             data={orgs}
@@ -85,7 +77,7 @@ export default function OrganisationsScreen() {
             }
             ItemSeparatorComponent={() => <View style={s.sep} />}
             renderItem={({ item }) => (
-              <TouchableOpacity style={s.row} onPress={() => router.push(`/organisation/${item.id}`)}>
+              <TouchableOpacity style={s.row} accessibilityRole="button" accessibilityLabel={item.name + ' - ' + item.my_role} onPress={() => router.push(`/organisation/${item.id}`)}>
                 <View style={s.orgAvatar}>
                   <Text style={s.orgAvatarText}>{item.name.slice(0, 2).toUpperCase()}</Text>
                 </View>
@@ -105,15 +97,16 @@ export default function OrganisationsScreen() {
 
       <Modal visible={showCreate} transparent animationType="slide" onRequestClose={() => setShowCreate(false)}>
         <View style={{ flex: 1 }}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowCreate(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} accessibilityLabel="Close" accessibilityRole="button" onPress={() => setShowCreate(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
+          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>{t('orgs.newOrg').toUpperCase()}</Text>
           <Text style={s.inputLabel}>{t('orgs.orgName').toUpperCase()}</Text>
           <TextInput
             style={s.input}
             placeholder="Ex: Breizhzion, Mon équipe..."
             placeholderTextColor="#A0A098"
+            accessibilityLabel="Organisation name"
             value={newName}
             onChangeText={setNewName}
             autoFocus
@@ -123,13 +116,14 @@ export default function OrganisationsScreen() {
             style={[s.input, { height: 72, textAlignVertical: 'top' }]}
             placeholder="Description de l'organisation..."
             placeholderTextColor="#A0A098"
+            accessibilityLabel="Description"
             value={newDesc}
             onChangeText={setNewDesc}
             multiline
           />
           {createError ? <Text style={s.error}>{createError}</Text> : null}
-          <TouchableOpacity style={s.saveBtn} onPress={createOrg} disabled={creating}>
-            {creating ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('orgs.create')}</Text>}
+          <TouchableOpacity style={s.saveBtn} accessibilityRole="button" accessibilityState={{ disabled: creating }} onPress={createOrg} disabled={creating}>
+            {creating ? <ActivityIndicator color="#fff" accessibilityLabel="Creating..." /> : <Text style={s.saveBtnText}>{t('orgs.create')}</Text>}
           </TouchableOpacity>
           </View>
           </KeyboardAvoidingView>

@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.3.2] - 2026-06-11
+
+### Added
+- **Cascade IA** : composant `AiConfigSection` réutilisable (collapsible, dot rouge si config active)
+- Config IA dans Settings (niveau user personnel)
+- Config IA dans Organisation (niveau org, admin/owner requis)
+- Config IA dans Paramètres Projet (niveau projet, surcharge la cascade)
+- Preset pills dans AiConfigSection (OpenAI, Mistral, Groq, OpenRouter, Ollama) pour auto-remplir l'URL
+- `{ silent, noRetry }` options dans `makeApi()` — plus de toast/retry sur les fetches background
+- Migration expo-av supprimée : `expo-audio` + `expo-video` utilisés partout
+- Fix nouveau user : `logout()` efface maintenant `currentProjectId` (plus de boucle 403)
+- Fix `((moi))` dans project-settings
+- Logo de l'app affiché dans l'écran de login
+- Icônes standardisées `#A00000` + fond transparent
+- Toast global (session expirée, accès refusé, erreur réseau)
+- Retry auto + timeout AbortController dans `makeApi()`
+- Bouton téléchargement pour tous les types de pièces jointes (audio, vidéo, fichiers)
+
+### Accessibility
+- **ToastBanner** : `accessibilityLiveRegion='polite'` + `accessibilityRole='alert'` (annonce VoiceOver/TalkBack)
+- **UserAvatar** : `accessibilityLabel` sur image et fallback View
+- **CardDetailSheet** : 33 corrections — close button, checkboxes (role+state), modals (viewIsModal), attachments, comments, labels, stopwatch, CalendarPicker
+- **Settings** : Switch biométrie label, boutons langue `role='radio'` + `state.selected`, modals viewIsModal
+- **Organisation** : labels accessibilité sur tous les boutons d'action
+- **AiConfigSection** : `expanded` state, `selected` state sur les pills, labels TextInput
+
+### i18n
+- Bloc `aiConfig` ajouté dans EN/FR/KO — aucune string hardcodée
+
+### Docs
+- README complet : architecture, features, setup, MCP tools
+
 ## [1.3.1] - 2026-06-10
 
 ### Chore

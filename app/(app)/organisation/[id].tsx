@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
+import { useLocalSearchParams } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -11,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { usePrefsStore } from '@/stores/prefs';
 import UserAvatar from '@/components/UserAvatar';
+import AiConfigSection from '@/components/AiConfigSection';
 
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
@@ -23,6 +26,7 @@ const ROLE_COLORS: Record<string, string> = { admin: '#A00000', user: '#6b7280' 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { id: orgId } = useLocalSearchParams<{ id: string }>();
   const { serverUrl, token, user: me, logout } = useAuthStore();
   const resetPrefs = usePrefsStore(s => s.reset);
   const { t } = useTranslation();
@@ -31,16 +35,7 @@ export default function AdminScreen() {
   const [advancedVisible, setAdvancedVisible] = useState(false);
   const appVersion = Constants.expoConfig?.version ?? '?';
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'Erreur'); }
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,7 +106,7 @@ export default function AdminScreen() {
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Back" accessibilityRole="button">
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
         <View>
@@ -127,7 +122,7 @@ export default function AdminScreen() {
         <View style={s.serverRow}>
           <Text style={s.serverUrl} numberOfLines={1}>{serverUrl || t('admin.notConfigured')}</Text>
           {serverUrl ? (
-            <TouchableOpacity onPress={() => Clipboard.setStringAsync(serverUrl)}>
+            <TouchableOpacity onPress={() => Clipboard.setStringAsync(serverUrl)} accessibilityLabel="Copy server URL" accessibilityRole="button">
               <Feather name="copy" size={14} color="#8A8A80" />
             </TouchableOpacity>
           ) : null}
@@ -137,7 +132,7 @@ export default function AdminScreen() {
         {/* Utilisateurs */}
         <Text style={s.sectionLabel}>{t('admin.users')}{users.length > 0 ? ` (${users.length})` : ''}</Text>
         {loading
-          ? <ActivityIndicator color={BRAND} style={{ marginVertical: 12 }} />
+          ? <ActivityIndicator color={BRAND} style={{ marginVertical: 12 }} accessibilityLabel="Loading" />
           : users.map(u => (
             <View key={u.id} style={[s.row, !u.is_active && { opacity: 0.45 }]}>
               <UserAvatar name={u.name} serverUrl={serverUrl} token={token ?? undefined} size={36} />
@@ -148,6 +143,8 @@ export default function AdminScreen() {
               <TouchableOpacity
                 style={[s.roleBadge, { backgroundColor: (ROLE_COLORS[u.role] ?? '#6b7280') + '15', borderColor: (ROLE_COLORS[u.role] ?? '#6b7280') + '44' }]}
                 onPress={() => u.id !== me?.id && changeRole(u)}
+                accessibilityRole="button"
+                accessibilityLabel={`Role: ${u.role}. Tap to change.`}
               >
                 <Text style={[s.roleText, { color: ROLE_COLORS[u.role] ?? '#6b7280' }]}>{u.role}</Text>
               </TouchableOpacity>
@@ -155,6 +152,8 @@ export default function AdminScreen() {
                 <TouchableOpacity
                   style={[s.actionBtn, { backgroundColor: u.is_active ? '#FFF0F0' : '#F0FFF0' }]}
                   onPress={() => toggleActive(u)}
+                  accessibilityRole="button"
+                  accessibilityLabel={u.is_active ? `Disable ${u.name}` : `Enable ${u.name}`}
                 >
                   <Text style={[s.actionBtnText, { color: u.is_active ? BRAND : '#16a34a' }]}>
                     {u.is_active ? '⏸' : '▶'}
@@ -166,6 +165,18 @@ export default function AdminScreen() {
         }
         <View style={s.divider} />
 
+        {orgId && (
+          <>
+            <AiConfigSection
+              api={api}
+              configPath={`/api/organisations/${orgId}/ai-config`}
+              titleKey="titleOrg"
+              subtitleKey="subtitleOrg"
+            />
+            <View style={s.divider} />
+          </>
+        )}
+
         {/* À propos */}
         <Text style={s.sectionLabel}>{t('admin.about')}</Text>
         <View style={s.block}>
@@ -173,7 +184,7 @@ export default function AdminScreen() {
             <Text style={s.aboutLabel}>{t('admin.version')}</Text>
             <Text style={s.aboutValue}>{appVersion}</Text>
           </View>
-          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.fr')}>
+          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.fr')} accessibilityRole="link">
             <Text style={s.aboutLabel}>{t('admin.officialSite')}</Text>
             <Text style={[s.aboutValue, { color: BRAND }]}>hae.breizhzion.fr ›</Text>
           </TouchableOpacity>
@@ -181,14 +192,14 @@ export default function AdminScreen() {
         <Text style={s.copyright}>{t('admin.copyright', { year: new Date().getFullYear() })}</Text>
 
         {/* Paramètres avancés */}
-        <TouchableOpacity style={s.advancedToggle} onPress={() => setAdvancedVisible(v => !v)}>
+        <TouchableOpacity style={s.advancedToggle} onPress={() => setAdvancedVisible(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: advancedVisible }}>
           <Text style={s.advancedToggleText}>{advancedVisible ? '▲' : '▼'} {t('admin.advancedSettings')}</Text>
         </TouchableOpacity>
 
         {advancedVisible && (
           <View style={[s.block, { marginBottom: 8 }]}>
             <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
-            <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
+            <TouchableOpacity style={s.dangerRow} onPress={handleResetApp} accessibilityRole="button">
               <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
               <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
             </TouchableOpacity>

@@ -83,7 +83,7 @@ export default function ArchivesScreen() {
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Back" accessibilityRole="button">
           <Feather name="arrow-left" size={22} color="#1A1A1A" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -93,11 +93,12 @@ export default function ArchivesScreen() {
       </View>
 
       {loading && !refreshing ? (
-        <View style={s.center}><ActivityIndicator color={BRAND} /></View>
+        <View style={s.center}><ActivityIndicator color={BRAND} accessibilityLabel="Loading archives" /></View>
       ) : (
         <FlatList
           data={cards}
           keyExtractor={c => c.id}
+          accessibilityRole="list"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
           contentContainerStyle={cards.length === 0 ? s.emptyContainer : s.list}
           ListEmptyComponent={
@@ -116,11 +117,11 @@ export default function ArchivesScreen() {
                 <Text style={s.cardDate}>{t('archives.archivedOn', { date: new Date(item.created_at).toLocaleDateString('fr-FR') })}</Text>
               </View>
               <View style={s.actions}>
-                <TouchableOpacity style={s.restoreBtn} onPress={() => restore(item)}>
+                <TouchableOpacity style={s.restoreBtn} onPress={() => restore(item)} accessibilityRole="button" accessibilityLabel={'Restore ' + item.title}>
                   <Feather name="rotate-ccw" size={13} color={BRAND} />
                   <Text style={s.restoreText}>{t('archives.restore')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.deleteBtn} onPress={() => deleteForever(item)}>
+                <TouchableOpacity style={s.deleteBtn} onPress={() => deleteForever(item)} accessibilityLabel={'Delete permanently ' + item.title} accessibilityRole="button">
                   <Feather name="trash-2" size={14} color={BRAND} />
                 </TouchableOpacity>
               </View>

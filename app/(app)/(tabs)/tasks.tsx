@@ -234,23 +234,23 @@ export default function TasksScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <View style={s.headerTop}>
-          <Image source={require('@/assets/icon.png')} style={s.logo} />
-          <TouchableOpacity style={s.projectPill} onPress={() => router.push('/(app)/(tabs)/projects')}>
+          <Image source={require('@/assets/icon.png')} style={s.logo} accessible={false} />
+          <TouchableOpacity style={s.projectPill} onPress={() => router.push('/(app)/(tabs)/projects')} accessibilityRole="button" accessibilityLabel={currentProjectName ?? 'No project selected'}>
             <Text style={s.projectName} numberOfLines={1}>
               {currentProjectName ?? 'Aucun projet'}
             </Text>
             <Feather name="chevron-down" size={12} color="#6b7280" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/search')} style={s.roundBtn}>
+          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/search')} style={s.roundBtn} accessibilityLabel="Search" accessibilityRole="button">
             <Feather name="search" size={14} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/calendar')} style={s.roundBtn}>
+          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/calendar')} style={s.roundBtn} accessibilityLabel="Calendar" accessibilityRole="button">
             <Feather name="calendar" size={14} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(app)/archives')} style={s.roundBtn}>
+          <TouchableOpacity onPress={() => router.push('/(app)/archives')} style={s.roundBtn} accessibilityLabel="Archives" accessibilityRole="button">
             <Feather name="archive" size={14} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(app)/project-settings')} style={s.roundBtn}>
+          <TouchableOpacity onPress={() => router.push('/(app)/project-settings')} style={s.roundBtn} accessibilityLabel="Project settings" accessibilityRole="button">
             <Feather name="settings" size={14} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -270,6 +270,8 @@ export default function TasksScreen() {
                 }}
                 delayLongPress={500}
                 style={s.tab}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: page === i }}
               >
                 <View style={s.tabRow}>
                   <Feather
@@ -293,7 +295,7 @@ export default function TasksScreen() {
           <Text style={s.emptySub}>{t('tasks.goToProjects')}</Text>
         </View>
       ) : loading && columns.length === 0 ? (
-        <View style={s.empty}><ActivityIndicator color={BRAND} /></View>
+        <View style={s.empty}><ActivityIndicator color={BRAND} accessibilityLabel="Loading..." /></View>
       ) : (
         <ScrollView ref={pagerRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScroll} scrollEventThrottle={16} style={s.pager}>
@@ -318,6 +320,7 @@ export default function TasksScreen() {
                           onSubmitEditing={() => createCard(col.id)}
                           onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                           returnKeyType="done"
+                          accessibilityLabel="New task title"
                         />
                       </View>
                     ) : (
@@ -346,6 +349,7 @@ export default function TasksScreen() {
                           onSubmitEditing={() => createCard(col.id)}
                           onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                           returnKeyType="done"
+                          accessibilityLabel="New task title"
                         />
                       </View>
                     ) : null}
@@ -354,11 +358,13 @@ export default function TasksScreen() {
                         style={s.card}
                         onPress={() => openCard(item)}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={item.title}
                       >
                         <Text style={s.cardTitle}>{item.title}</Text>
                         {item.description ? <Text style={s.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
                         {(item.checklist_total ?? 0) > 0 && (
-                          <View style={s.checklistProgress}>
+                          <View style={s.checklistProgress} accessible={true} accessibilityLabel={`${item.checklist_done ?? 0}/${item.checklist_total} items done`}>
                             <View style={s.checklistBar}>
                               <View style={[s.checklistFill, { width: `${Math.round(((item.checklist_done ?? 0) / item.checklist_total!) * 100)}%` as any }]} />
                             </View>
@@ -407,7 +413,7 @@ export default function TasksScreen() {
 
       <Modal visible={!!renamingCol} transparent animationType="fade" onRequestClose={() => setRenamingCol(null)}>
         <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setRenamingCol(null)}>
-          <TouchableOpacity activeOpacity={1} style={s.modalBox}>
+          <TouchableOpacity activeOpacity={1} style={s.modalBox} accessibilityViewIsModal={true}>
             <Text style={s.modalTitle}>{t('tasks.renameColumn')}</Text>
             {renamingCol && GTD_HINTS_T[renamingCol.type] && (
               <Text style={s.modalHint}>{GTD_HINTS_T[renamingCol.type]}</Text>
@@ -420,6 +426,7 @@ export default function TasksScreen() {
               selectTextOnFocus
               returnKeyType="done"
               onSubmitEditing={renameColumn}
+              accessibilityLabel="Column name"
             />
             <View style={s.modalActions}>
               <TouchableOpacity onPress={() => setRenamingCol(null)} style={s.modalCancel}>
@@ -438,6 +445,8 @@ export default function TasksScreen() {
           style={[s.fab, { bottom: insets.bottom + 20 }]}
           onPress={() => { setAddingInColumn(pages[page]?.id ?? null); setNewCardTitle(''); }}
           activeOpacity={0.85}
+          accessibilityLabel="Add task"
+          accessibilityRole="button"
         >
           <Feather name="plus" size={26} color="#fff" />
         </TouchableOpacity>

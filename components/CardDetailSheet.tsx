@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Marked from 'react-native-marked';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
@@ -9,7 +9,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio, Video, ResizeMode } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { showToast } from '../stores/toast';
+import { makeApi } from '../lib/api';
+import { VideoView, useVideoPlayer } from 'expo-video';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -64,11 +67,11 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
   return (
     <View>
       <View style={cal.nav}>
-        <TouchableOpacity onPress={prevMonth} style={cal.navBtn}>
+        <TouchableOpacity onPress={prevMonth} style={cal.navBtn} accessibilityLabel="Previous month" accessibilityRole="button">
           <Text style={cal.navArrow}>‹</Text>
         </TouchableOpacity>
         <Text style={cal.monthLabel}>{monthNames[viewMonth]} {viewYear}</Text>
-        <TouchableOpacity onPress={nextMonth} style={cal.navBtn}>
+        <TouchableOpacity onPress={nextMonth} style={cal.navBtn} accessibilityLabel="Next month" accessibilityRole="button">
           <Text style={cal.navArrow}>›</Text>
         </TouchableOpacity>
       </View>
@@ -87,6 +90,9 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
                 onPress={() => d && pick(d)}
                 activeOpacity={d ? 0.6 : 1}
                 disabled={!d}
+                accessibilityRole="button"
+                accessibilityState={{ selected: !!(d && isSelected(d)) }}
+                accessibilityLabel={d ? `${d} ${monthNames[viewMonth]} ${viewYear}` : undefined}
               >
                 <Text style={[cal.cellText, d && isSelected(d) ? cal.cellTextSel : undefined, d && isToday(d) && !isSelected(d) ? cal.cellTextToday : undefined]}>
                   {d ?? ''}
@@ -147,6 +153,18 @@ interface Props {
   onNeedRefetch: () => void;
 }
 
+function VideoPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, p => { p.play(); });
+  return (
+    <VideoView
+      player={player}
+      style={{ width: '100%', height: 300 }}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
+
 export default function CardDetailSheet({
   card, expandAnim, token, serverUrl, projectId, insets,
   onClose, onCardUpdated, onCardDeleted, onNeedRefetch,
@@ -184,23 +202,15 @@ export default function CardDetailSheet({
   const [swDisplay, setSwDisplay] = useState(0);
   const swInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+
   const [imageViewerAtt, setImageViewerAtt] = useState<Attachment | null>(null);
   const [videoViewerAtt, setVideoViewerAtt] = useState<Attachment | null>(null);
   const [uploadingAtt, setUploadingAtt] = useState(false);
   const [loadingAttId, setLoadingAttId] = useState<string | null>(null);
   const [playingAttId, setPlayingAttId] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) throw new Error(await r.text());
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const startSwTick = useCallback((total: number, startedAt: number) => {
     clearInterval(swInterval.current!);
@@ -254,7 +264,7 @@ export default function CardDetailSheet({
     loadProjectData();
     return () => {
       clearInterval(swInterval.current!);
-      if (soundRef.current) { soundRef.current.stopAsync().then(() => soundRef.current?.unloadAsync()); soundRef.current = null; }
+      if (soundRef.current) { soundRef.current.pause(); soundRef.current.remove(); soundRef.current = null; }
     };
   }, [card?.id]);
 
@@ -444,18 +454,18 @@ export default function CardDetailSheet({
     ]);
   };
 
-  const stopAudio = async () => {
+  const stopAudio = () => {
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      soundRef.current.pause();
+      soundRef.current.remove();
       soundRef.current = null;
     }
     setPlayingAttId(null);
   };
 
   const toggleAudio = async (att: Attachment) => {
-    if (playingAttId === att.id) { await stopAudio(); return; }
-    await stopAudio();
+    if (playingAttId === att.id) { stopAudio(); return; }
+    stopAudio();
     setLoadingAttId(att.id);
     try {
       const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
@@ -465,12 +475,13 @@ export default function CardDetailSheet({
           headers: { Authorization: `Bearer ${token}` },
         });
       }
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: localUri }, { shouldPlay: true });
-      soundRef.current = sound;
+      await setAudioModeAsync({ playsInSilentMode: true });
+      const player = createAudioPlayer({ uri: localUri });
+      soundRef.current = player;
+      player.play();
       setPlayingAttId(att.id);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish) {
           soundRef.current = null;
           setPlayingAttId(null);
         }
@@ -520,7 +531,9 @@ export default function CardDetailSheet({
       setComments(prev => prev.map(c => c.id === editCommentId ? { ...c, content: editCommentText.trim() } : c));
       setEditCommentId(null);
       setEditCommentText('');
-    } catch {}
+    } catch (e: any) {
+      if (e?.message !== '401') showToast('Impossible de sauvegarder');
+    }
   };
 
   const startStopwatch = async () => {
@@ -611,20 +624,20 @@ export default function CardDetailSheet({
       opacity: expandAnim,
       transform: [{ scale: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0.93, 1] }) }],
     }]}>
-      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={s.closeBtn} onPress={onClose}>
+<View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={s.closeBtn} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button">
           <Text style={s.closeBtnText}>✕</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity style={s.topAction} onPress={() => setShowMovePicker(true)}>
+        <TouchableOpacity style={s.topAction} onPress={() => setShowMovePicker(true)} accessibilityRole="button">
           <Text style={s.topActionText}>Deplacer</Text>
         </TouchableOpacity>
         {isInTrash ? (
-          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCardPermanently}>
+          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCardPermanently} accessibilityRole="button">
             <Text style={[s.topActionText, { color: BRAND }]}>⚠ Supprimer</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={archiveCard}>
+          <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={archiveCard} accessibilityRole="button">
             <Text style={[s.topActionText, { color: BRAND }]}>Archiver</Text>
           </TouchableOpacity>
         )}
@@ -644,12 +657,14 @@ export default function CardDetailSheet({
                 key={l.id}
                 style={[s.labelChip, { backgroundColor: l.color + '22', borderColor: l.color + '55' }]}
                 onPress={() => toggleLabel(l)}
+                accessibilityLabel={'Remove label ' + l.name}
+                accessibilityRole="button"
               >
                 <Text style={[s.labelChipText, { color: l.color }]}>{l.name}</Text>
                 <Text style={[s.labelChipX, { color: l.color + 'AA' }]}>x</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={s.addChip} onPress={() => setShowLabelPicker(true)}>
+            <TouchableOpacity style={s.addChip} onPress={() => setShowLabelPicker(true)} accessibilityRole="button" accessibilityLabel="Add label">
               <Text style={s.addChipText}>+ Label</Text>
             </TouchableOpacity>
           </View>
@@ -674,14 +689,14 @@ export default function CardDetailSheet({
               </View>
             </View>
           ) : (
-            <TouchableOpacity activeOpacity={0.7} onPress={() => { setTitleDraft(detail?.title ?? card.title); setEditingTitle(true); }}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => { setTitleDraft(detail?.title ?? card.title); setEditingTitle(true); }} accessibilityHint="Tap to edit title" accessibilityRole="button">
               <Text style={s.title}>{detail?.title ?? card.title}</Text>
             </TouchableOpacity>
           )}
 
           {/* Meta: due date + stopwatch */}
           <View style={s.metaRow}>
-            <TouchableOpacity style={[s.metaBadge, isDueOverdue && s.metaBadgeOverdue]} onPress={() => setShowDuePicker(true)}>
+            <TouchableOpacity style={[s.metaBadge, isDueOverdue && s.metaBadgeOverdue]} onPress={() => setShowDuePicker(true)} accessibilityLabel={dueDate ? 'Due: ' + new Date(dueDate).toLocaleDateString() : 'Set due date'} accessibilityRole="button">
               <Text style={s.metaIcon}>📅</Text>
               <Text style={[s.metaText, isDueOverdue && { color: BRAND }]}>
                 {dueDate
@@ -693,6 +708,8 @@ export default function CardDetailSheet({
             <TouchableOpacity
               style={[s.metaBadge, isRunning && s.metaBadgeRunning]}
               onPress={isRunning ? stopStopwatch : startStopwatch}
+              accessibilityLabel={isRunning ? 'Stop stopwatch' : 'Start stopwatch'}
+              accessibilityRole="button"
             >
               <Text style={s.metaIcon}>{isRunning ? '⏹' : '▶'}</Text>
               <Text style={[s.metaText, isRunning && { color: BRAND }]}>{fmt(swDisplay)}</Text>
@@ -703,13 +720,13 @@ export default function CardDetailSheet({
           <View style={s.section}>
             <View style={s.sectionHead}>
               <Text style={s.sectionLabel}>MEMBRES</Text>
-              <TouchableOpacity onPress={() => setShowMemberPicker(true)}>
+              <TouchableOpacity onPress={() => setShowMemberPicker(true)} accessibilityLabel="Add member" accessibilityRole="button">
                 <Text style={s.sectionPlus}>+</Text>
               </TouchableOpacity>
             </View>
             <View style={s.membersRow}>
               {(detail?.members ?? []).map(m => (
-                <TouchableOpacity key={m.id} style={s.avatar} onPress={() => toggleMember(m)}>
+                <TouchableOpacity key={m.id} style={s.avatar} onPress={() => toggleMember(m)} accessibilityLabel={'Remove ' + m.name} accessibilityRole="button">
                   <Text style={s.avatarText}>{m.name.slice(0, 2).toUpperCase()}</Text>
                 </TouchableOpacity>
               ))}
@@ -770,7 +787,7 @@ export default function CardDetailSheet({
                 </View>
               </View>
             ) : (
-              <TouchableOpacity activeOpacity={0.7} onPress={() => { setDescDraft(detail?.description ?? ''); setEditingDesc(true); }}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => { setDescDraft(detail?.description ?? ''); setEditingDesc(true); }} accessibilityHint="Tap to edit description" accessibilityRole="button">
                 {detail?.description
                   ? <Marked value={detail.description} flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }} theme={{ colors: { text: '#4A4A44', link: '#A00000', code: '#F5F5F0', border: '#E8E8E4' } }} styles={{ text: { fontSize: 14, color: '#4A4A44', lineHeight: 22 }, paragraph: { marginBottom: 8 } }} />
                   : <Text style={s.dimText}>Appuyer pour ajouter une description...</Text>}
@@ -779,7 +796,7 @@ export default function CardDetailSheet({
           </View>
 
           {/* Checklists */}
-          {loading && !detail && <ActivityIndicator color={BRAND} style={{ marginVertical: 16 }} />}
+          {loading && !detail && <ActivityIndicator color={BRAND} style={{ marginVertical: 16 }} accessibilityLabel="Loading" />}
           {(detail?.checklists ?? []).map(cl => {
             const done = cl.items.filter(i => i.is_done).length;
             const total = cl.items.length;
@@ -790,7 +807,7 @@ export default function CardDetailSheet({
                   <Text style={s.sectionLabel}>{cl.title.toUpperCase()}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Text style={s.clProgress}>{done}/{total}</Text>
-                    <TouchableOpacity onPress={() => deleteChecklist(cl.id)}>
+                    <TouchableOpacity onPress={() => deleteChecklist(cl.id)} accessibilityLabel={'Delete checklist ' + cl.title} accessibilityRole="button">
                       <Text style={s.xBtn}>x</Text>
                     </TouchableOpacity>
                   </View>
@@ -803,11 +820,14 @@ export default function CardDetailSheet({
                     <TouchableOpacity
                       style={[s.clCheck, !!item.is_done && s.clCheckDone]}
                       onPress={() => toggleItem(cl.id, item)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: !!item.is_done }}
+                      accessibilityLabel={item.text}
                     >
                       {!!item.is_done && <Text style={s.clMark}>v</Text>}
                     </TouchableOpacity>
                     <Text style={[s.clText, !!item.is_done && s.clTextDone]} numberOfLines={0}>{item.text}</Text>
-                    <TouchableOpacity onPress={() => deleteItem(cl.id, item.id)}>
+                    <TouchableOpacity onPress={() => deleteItem(cl.id, item.id)} accessibilityLabel={'Delete ' + item.text} accessibilityRole="button">
                       <Text style={s.xBtn}>x</Text>
                     </TouchableOpacity>
                   </View>
@@ -872,9 +892,9 @@ export default function CardDetailSheet({
           <View style={s.section}>
             <View style={s.sectionHead}>
               <Text style={s.sectionLabel}>PIÈCES JOINTES{(detail?.attachments?.length ?? 0) > 0 ? ` (${detail!.attachments.length})` : ''}</Text>
-              <TouchableOpacity onPress={uploadAttachment} disabled={uploadingAtt}>
+              <TouchableOpacity onPress={uploadAttachment} disabled={uploadingAtt} accessibilityLabel="Add attachment" accessibilityRole="button">
                 {uploadingAtt
-                  ? <ActivityIndicator size="small" color={BRAND} />
+                  ? <ActivityIndicator size="small" color={BRAND} accessibilityLabel="Uploading" />
                   : <Text style={s.sectionPlus}>+</Text>
                 }
               </TouchableOpacity>
@@ -884,24 +904,28 @@ export default function CardDetailSheet({
               if (isImage) {
                 return (
                   <View key={att.id} style={s.attImageWrap}>
-                    <TouchableOpacity onPress={() => setImageViewerAtt(att)} activeOpacity={0.9}>
+                    <TouchableOpacity onPress={() => setImageViewerAtt(att)} activeOpacity={0.9} accessibilityLabel={'View image ' + att.filename} accessibilityRole="button">
                       <Image
                         source={{ uri: `${serverUrl}/api/attachments/${att.id}/download`, headers: { Authorization: `Bearer ${token}` } }}
                         style={s.attImage}
                         resizeMode="cover"
+                        accessibilityLabel={att.filename}
                       />
                     </TouchableOpacity>
                     <View style={s.attImageFooter}>
                       <Text style={s.attFilename} numberOfLines={1}>{att.filename}</Text>
-                      <TouchableOpacity onPress={() => deleteAttachment(att.id)}>
+                      <TouchableOpacity onPress={() => deleteAttachment(att.id)} accessibilityLabel={'Delete ' + att.filename} accessibilityRole="button">
                         <Text style={s.xBtn}>✕</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 );
               }
-              const isAudio = att.mime_type.startsWith('audio/');
-              const isVideo = att.mime_type.startsWith('video/');
+              const ext = att.filename.split('.').pop()?.toLowerCase() ?? '';
+              const AUDIO_EXTS = new Set(['mp3','m4a','aac','ogg','flac','wav','opus']);
+              const VIDEO_EXTS = new Set(['mp4','mov','webm','mkv','avi']);
+              const isAudio = att.mime_type.startsWith('audio/') || AUDIO_EXTS.has(ext);
+              const isVideo = att.mime_type.startsWith('video/') || VIDEO_EXTS.has(ext);
               const isLoading = loadingAttId === att.id;
               const isPlaying = playingAttId === att.id;
               const iconName = att.mime_type === 'application/pdf' ? 'document-text-outline'
@@ -912,9 +936,9 @@ export default function CardDetailSheet({
                 : isVideo ? () => openVideo(att)
                 : () => downloadAttachment(att);
               return (
-                <TouchableOpacity key={att.id} style={s.attChip} onPress={onChipPress} disabled={isLoading}>
+                <TouchableOpacity key={att.id} style={s.attChip} onPress={onChipPress} disabled={isLoading} accessibilityLabel={isAudio ? (isPlaying ? 'Pause ' + att.filename : 'Play ' + att.filename) : isVideo ? 'Play video ' + att.filename : 'Download ' + att.filename} accessibilityRole="button">
                   {isLoading
-                    ? <ActivityIndicator size="small" color={BRAND} style={{ width: 20 }} />
+                    ? <ActivityIndicator size="small" color={BRAND} style={{ width: 20 }} accessibilityLabel="Loading file" />
                     : isPlaying
                       ? <Ionicons name="pause-circle-outline" size={20} color={BRAND} />
                       : <Ionicons name={iconName} size={20} color="#6B6B63" />
@@ -923,12 +947,10 @@ export default function CardDetailSheet({
                     <Text style={s.attChipName} numberOfLines={1}>{att.filename}</Text>
                     <Text style={s.attChipSize}>{(att.size / 1024).toFixed(0)} Ko{isPlaying ? ' · lecture...' : ''}</Text>
                   </View>
-                  {!isAudio && !isVideo && (
-                    <TouchableOpacity onPress={() => downloadAttachment(att)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="download-outline" size={16} color="#8A8A80" />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity onPress={() => deleteAttachment(att.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity onPress={() => downloadAttachment(att)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={'Download ' + att.filename} accessibilityRole="button">
+                    <Ionicons name="download-outline" size={16} color="#8A8A80" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteAttachment(att.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={'Delete ' + att.filename} accessibilityRole="button">
                     <Text style={s.xBtn}>✕</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -953,11 +975,11 @@ export default function CardDetailSheet({
                   </Text>
                   <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 8 }}>
                     {editCommentId !== c.id && (
-                      <TouchableOpacity onPress={() => { setEditCommentId(c.id); setEditCommentText(c.content); }}>
+                      <TouchableOpacity onPress={() => { setEditCommentId(c.id); setEditCommentText(c.content); }} accessibilityLabel="Edit comment" accessibilityRole="button">
                         <Text style={[s.xBtn, { color: '#6B6B63' }]}>✎</Text>
                       </TouchableOpacity>
                     )}
-                    <TouchableOpacity onPress={() => deleteComment(c.id)}>
+                    <TouchableOpacity onPress={() => deleteComment(c.id)} accessibilityLabel="Delete comment" accessibilityRole="button">
                       <Text style={s.xBtn}>x</Text>
                     </TouchableOpacity>
                   </View>
@@ -993,14 +1015,18 @@ export default function CardDetailSheet({
                 placeholder="Ajouter un commentaire..."
                 placeholderTextColor="#A0A098"
                 multiline
+                accessibilityLabel="Add a comment"
               />
               <TouchableOpacity
                 style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
                 onPress={postComment}
                 disabled={!newComment.trim() || sendingComment}
+                accessibilityLabel="Send comment"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !newComment.trim() || sendingComment }}
               >
                 {sendingComment
-                  ? <ActivityIndicator color="#fff" size="small" />
+                  ? <ActivityIndicator color="#fff" size="small" accessibilityLabel="Sending" />
                   : <Text style={s.sendBtnText}>^</Text>}
               </TouchableOpacity>
             </View>
@@ -1011,7 +1037,7 @@ export default function CardDetailSheet({
       {/* Label picker */}
       <Modal visible={showLabelPicker} transparent animationType="slide" onRequestClose={() => { setShowLabelPicker(false); setCreatingLabel(false); }}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => { setShowLabelPicker(false); setCreatingLabel(false); }} />
-        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>LABELS DU PROJET</Text>
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>Aucun label. Creer le premier.</Text>}
@@ -1067,7 +1093,7 @@ export default function CardDetailSheet({
       {/* Member picker */}
       <Modal visible={showMemberPicker} transparent animationType="slide" onRequestClose={() => setShowMemberPicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMemberPicker(false)} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>Membres du projet</Text>
           {projectMembers.map(m => {
             const active = detail?.members.some(x => x.id === m.id) ?? false;
@@ -1085,7 +1111,7 @@ export default function CardDetailSheet({
       {/* Move picker */}
       <Modal visible={showMovePicker} transparent animationType="slide" onRequestClose={() => setShowMovePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMovePicker(false)} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>Deplacer vers</Text>
           {projectColumns
             .filter(col => col.id !== (detail?.column_id ?? card?.column_id) && col.type !== 'gtd_trash')
@@ -1100,7 +1126,7 @@ export default function CardDetailSheet({
       {/* Due date picker */}
       <Modal visible={showDuePicker} transparent animationType="slide" onRequestClose={() => setShowDuePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowDuePicker(false)} />
-        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>ECHEANCE</Text>
           <CalendarPicker
             value={dueDate ?? null}
@@ -1112,25 +1138,25 @@ export default function CardDetailSheet({
       </Modal>
       {/* Video player modal */}
       <Modal visible={!!videoViewerAtt} transparent animationType="fade" onRequestClose={() => setVideoViewerAtt(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }} accessibilityViewIsModal={true}>
           <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }} onPress={() => setVideoViewerAtt(null)}>
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>✕</Text>
           </TouchableOpacity>
+          {videoViewerAtt && <VideoPlayer uri={videoViewerAtt.filename} />}
           {videoViewerAtt && (
-            <Video
-              source={{ uri: videoViewerAtt.filename }}
-              style={{ width: '100%', height: 300 }}
-              resizeMode={ResizeMode.CONTAIN}
-              useNativeControls
-              shouldPlay
-            />
+            <TouchableOpacity
+              style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
+              onPress={() => { const orig = (detail?.attachments ?? []).find(a => a.id === videoViewerAtt.id); if (orig) downloadAttachment(orig); }}
+            >
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Telecharger</Text>
+            </TouchableOpacity>
           )}
         </View>
       </Modal>
 
       {/* Image viewer modal */}
       <Modal visible={!!imageViewerAtt} transparent animationType="fade" onRequestClose={() => setImageViewerAtt(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }} accessibilityViewIsModal={true}>
           <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }} onPress={() => setImageViewerAtt(null)}>
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>✕</Text>
           </TouchableOpacity>
@@ -1139,6 +1165,7 @@ export default function CardDetailSheet({
               source={{ uri: `${serverUrl}/api/attachments/${imageViewerAtt.id}/download`, headers: { Authorization: `Bearer ${token}` } }}
               style={{ width: '90%', height: '70%' }}
               resizeMode="contain"
+              accessibilityLabel={imageViewerAtt?.filename ?? 'Image'}
             />
           )}
           {imageViewerAtt && (

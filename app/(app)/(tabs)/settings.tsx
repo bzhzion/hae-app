@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { LANGUAGES, saveLanguage, type Language } from '@/i18n';
 import UserAvatar from '@/components/UserAvatar';
+import AiConfigSection from '@/components/AiConfigSection';
 import { Switch, Platform as RNPlatform } from 'react-native';
 import { useBiometricStore } from '@/stores/biometric';
 import { usePrefsStore } from '@/stores/prefs';
@@ -33,16 +35,7 @@ export default function ProfileScreen() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'Erreur'); }
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const changeAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -124,7 +117,7 @@ export default function ProfileScreen() {
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.title}>{t('settings.title')}</Text>
         {me?.role === 'admin' && (
-          <TouchableOpacity style={s.adminChip} onPress={() => router.push('/(app)/admin')}>
+          <TouchableOpacity style={s.adminChip} onPress={() => router.push('/(app)/admin')} accessibilityRole="button">
             <Text style={s.adminChipText}>{t('settings.admin')}</Text>
           </TouchableOpacity>
         )}
@@ -135,10 +128,10 @@ export default function ProfileScreen() {
         {me && (
           <>
             <View style={s.profileRow}>
-              <TouchableOpacity onPress={changeAvatar} disabled={uploadingAvatar} style={{ position: 'relative' }}>
+              <TouchableOpacity onPress={changeAvatar} disabled={uploadingAvatar} style={{ position: 'relative' }} accessibilityLabel="Change profile picture" accessibilityRole="button">
                 <UserAvatar name={me.name} serverUrl={serverUrl} token={token ?? undefined} size={48} avatarUrl={me.avatar_url ?? undefined} />
                 {uploadingAvatar
-                  ? <View style={s.avatarLoader}><ActivityIndicator size="small" color="#fff" /></View>
+                  ? <View style={s.avatarLoader}><ActivityIndicator size="small" color="#fff" accessibilityLabel="Uploading..." /></View>
                   : <View style={s.avatarEditBadge}><Text style={{ fontSize: 10, color: '#fff' }}>✎</Text></View>
                 }
               </TouchableOpacity>
@@ -146,11 +139,11 @@ export default function ProfileScreen() {
                 <Text style={s.profileName}>{me.name}</Text>
                 <Text style={s.profileEmail}>{me.email}</Text>
               </View>
-              <TouchableOpacity style={s.editProfileBtn} onPress={() => { setEditName(me.name); setShowEditProfile(true); }}>
+              <TouchableOpacity style={s.editProfileBtn} onPress={() => { setEditName(me.name); setShowEditProfile(true); }} accessibilityRole="button">
                 <Text style={s.editProfileBtnText}>{t('settings.modify')}</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={s.pwBtn} onPress={() => { setPwCurrent(''); setPwNew(''); setPwError(''); setShowChangePassword(true); }}>
+            <TouchableOpacity style={s.pwBtn} onPress={() => { setPwCurrent(''); setPwNew(''); setPwError(''); setShowChangePassword(true); }} accessibilityRole="button">
               <Text style={s.pwBtnText}>{t('settings.changePassword')}</Text>
               <Text style={s.chevron}>›</Text>
             </TouchableOpacity>
@@ -170,6 +163,7 @@ export default function ProfileScreen() {
                 onValueChange={setBioEnabled}
                 trackColor={{ false: '#EBEBEB', true: BRAND }}
                 thumbColor="#fff"
+                accessibilityLabel="Enable biometrics"
               />
             </View>
             <View style={s.divider} />
@@ -183,6 +177,8 @@ export default function ProfileScreen() {
               key={l.code}
               style={[s.langBtn, currentLang === l.code && s.langBtnActive]}
               onPress={() => changeLang(l.code)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: currentLang === l.code }}
             >
               <Text style={s.langFlag}>{l.flag}</Text>
               <Text style={[s.langLabel, currentLang === l.code && s.langLabelActive]}>{l.label}</Text>
@@ -190,9 +186,17 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        <View style={s.divider} />
+        <AiConfigSection
+          api={api}
+          configPath="/api/users/me/ai-config"
+          titleKey="titleUser"
+          subtitleKey="subtitleUser"
+        />
+
         <View style={s.spacer} />
 
-        <TouchableOpacity style={s.logoutBtn} onPress={() => { resetPrefs(); logout(); router.replace('/(auth)/login'); }}>
+        <TouchableOpacity style={s.logoutBtn} onPress={() => { resetPrefs(); logout(); router.replace('/(auth)/login'); }} accessibilityRole="button">
           <Text style={s.logoutText}>{t('settings.logout')}</Text>
         </TouchableOpacity>
 
@@ -202,11 +206,11 @@ export default function ProfileScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowEditProfile(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
               <Text style={s.sheetTitle}>{t('settings.editProfile')}</Text>
               <Text style={[s.sectionLabel, { marginBottom: 8 }]}>{t('settings.name')}</Text>
-              <TextInput style={s.sheetInput} value={editName} onChangeText={setEditName} autoFocus />
-              <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={saveProfile} disabled={editProfileLoading}>
+              <TextInput style={s.sheetInput} value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="Full name" />
+              <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={saveProfile} disabled={editProfileLoading} accessibilityRole="button" accessibilityState={{ disabled: editProfileLoading }}>
                 {editProfileLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.save')}</Text>}
               </TouchableOpacity>
             </View>
@@ -218,14 +222,14 @@ export default function ProfileScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowChangePassword(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
               <Text style={s.sheetTitle}>{t('settings.changePasswordTitle')}</Text>
               <Text style={[s.sectionLabel, { marginBottom: 8 }]}>{t('settings.currentPassword')}</Text>
-              <TextInput style={s.sheetInput} value={pwCurrent} onChangeText={setPwCurrent} secureTextEntry autoFocus />
+              <TextInput style={s.sheetInput} value={pwCurrent} onChangeText={setPwCurrent} secureTextEntry autoFocus accessibilityLabel="Current password" />
               <Text style={[s.sectionLabel, { marginTop: 12, marginBottom: 8 }]}>{t('settings.newPassword')}</Text>
-              <TextInput style={s.sheetInput} value={pwNew} onChangeText={setPwNew} secureTextEntry />
+              <TextInput style={s.sheetInput} value={pwNew} onChangeText={setPwNew} secureTextEntry accessibilityLabel="New password" />
               {pwError ? <Text style={[s.inviteError, { marginTop: 8 }]}>{pwError}</Text> : null}
-              <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={changePassword} disabled={pwLoading}>
+              <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={changePassword} disabled={pwLoading} accessibilityRole="button" accessibilityState={{ disabled: pwLoading }}>
                 {pwLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.confirm')}</Text>}
               </TouchableOpacity>
             </View>

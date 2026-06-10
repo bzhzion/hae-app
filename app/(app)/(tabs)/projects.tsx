@@ -1,5 +1,6 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, StatusBar, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { makeApi } from '@/lib/api';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -58,17 +59,7 @@ export default function ProjectsScreen() {
     ]);
   };
 
-  const api = useCallback(async (method: string, path: string, body?: any) => {
-    const r = await fetch(`${serverUrl}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (r.status === 401) { logout(); router.replace('/(auth)/login'); throw new Error('401'); }
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? t('common.error')); }
-    if (r.status === 204) return null;
-    return r.json();
-  }, [serverUrl, token, t]);
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,17 +123,19 @@ export default function ProjectsScreen() {
         style={[s.card, active && s.cardActive]}
         onPress={() => select(item)}
         onLongPress={() => openProjectMenu(item)}
+        accessibilityRole="button"
+        accessibilityLabel={active ? `${item.name}, selected` : item.name}
       >
         <View style={s.cardBody}>
           <Text style={[s.cardTitle, active && s.cardTitleActive]}>{item.name}</Text>
           {item.description ? <Text style={s.cardDesc} numberOfLines={1}>{item.description}</Text> : null}
         </View>
-        {active ? <View style={s.activeDot} /> : <Text style={s.cardArrow}>›</Text>}
+        {active ? <View style={s.activeDot} accessible={false} /> : <Text style={s.cardArrow}>›</Text>}
       </TouchableOpacity>
     );
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator color={BRAND} /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator color={BRAND} accessibilityLabel="Loading projects" /></View>;
 
   return (
     <View style={s.container}>
@@ -199,9 +192,9 @@ export default function ProjectsScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowEdit(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
+          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>{t('projects.editProject').toUpperCase()}</Text>
-          <TextInput style={s.sheetInput} placeholder={t('projects.projectName')} placeholderTextColor="#A0A098" value={editName} onChangeText={setEditName} autoFocus />
+          <TextInput style={s.sheetInput} placeholder={t('projects.projectName')} placeholderTextColor="#A0A098" value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="Project name" />
           <TextInput style={[s.sheetInput, { marginTop: 10, height: 64, textAlignVertical: 'top' }]} placeholder={t('projects.description')} placeholderTextColor="#A0A098" value={editDesc} onChangeText={setEditDesc} multiline />
           {editError ? <Text style={s.error}>{editError}</Text> : null}
           <TouchableOpacity style={s.saveBtn} onPress={editProject} disabled={editing}>
@@ -216,6 +209,8 @@ export default function ProjectsScreen() {
         style={[s.fab, { bottom: insets.bottom + 20 }]}
         onPress={openCreate}
         activeOpacity={0.85}
+        accessibilityLabel="Create a project"
+        accessibilityRole="button"
       >
         <Feather name="plus" size={26} color="#fff" />
       </TouchableOpacity>
@@ -225,7 +220,7 @@ export default function ProjectsScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowCreate(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
+          <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>{t('projects.createProject').toUpperCase()}</Text>
           <TextInput
             style={s.sheetInput}
@@ -234,6 +229,7 @@ export default function ProjectsScreen() {
             value={projName}
             onChangeText={setProjName}
             autoFocus
+            accessibilityLabel="Project name"
           />
           <TextInput
             style={[s.sheetInput, { marginTop: 10, height: 64, textAlignVertical: 'top' }]}
@@ -249,6 +245,8 @@ export default function ProjectsScreen() {
             <TouchableOpacity
               style={[s.orgOpt, projOrgId === null && s.orgOptSel]}
               onPress={() => setProjOrgId(null)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: projOrgId === null }}
             >
               <Text style={[s.orgOptText, projOrgId === null && s.orgOptTextSel]}>{t('projects.personal_label')}</Text>
             </TouchableOpacity>
@@ -257,6 +255,8 @@ export default function ProjectsScreen() {
                 key={o.id}
                 style={[s.orgOpt, projOrgId === o.id && s.orgOptSel]}
                 onPress={() => setProjOrgId(o.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: projOrgId === o.id }}
               >
                 <Text style={[s.orgOptText, projOrgId === o.id && s.orgOptTextSel]} numberOfLines={1}>{o.name}</Text>
               </TouchableOpacity>

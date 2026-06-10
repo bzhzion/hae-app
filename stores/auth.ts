@@ -61,7 +61,11 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => set({ token }),
       setServerUrl: (serverUrl) => set({ serverUrl }),
       setUser: (user) => set({ user }),
-      logout: () => set({ token: null, user: null }),
+      logout: () => {
+        set({ token: null, user: null });
+        // Évite qu'un ancien projectId reste en mémoire pour le prochain user
+        import('../stores/project').then(m => m.useProjectStore.getState().clearProject());
+      },
     }),
     {
       name: 'hae-auth',

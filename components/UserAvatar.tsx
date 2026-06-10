@@ -46,12 +46,12 @@ export default function UserAvatar({ name, avatarUrl, serverUrl, token, size = 3
   const r = size / 2;
 
   if (imgSrc) {
-    return <Image source={{ uri: imgSrc }} style={[s.avatar, { width: size, height: size, borderRadius: r }]} />;
+    return <Image source={{ uri: imgSrc }} style={[s.avatar, { width: size, height: size, borderRadius: r }]} accessibilityLabel={name} />;
   }
 
   return (
-    <View style={[s.avatar, { width: size, height: size, borderRadius: r, backgroundColor: color + '22' }]}>
-      <Text style={[s.initials, { fontSize: size * 0.33, color }]}>{initials}</Text>
+    <View accessible={true} accessibilityLabel={name} style={[s.avatar, { width: size, height: size, borderRadius: r, backgroundColor: color + '22' }]}>
+      <Text accessible={false} style={[s.initials, { fontSize: size * 0.33, color }]}>{initials}</Text>
     </View>
   );
 }
