@@ -359,7 +359,13 @@ export default function CardDetailSheet({
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: async () => {
         await api('DELETE', `/api/checklists/${clId}`);
-        setDetail(prev => prev ? { ...prev, checklists: prev.checklists.filter(c => c.id !== clId) } : prev);
+        setDetail(prev => {
+          if (!prev) return prev;
+          const newChecklists = prev.checklists.filter(c => c.id !== clId);
+          const allItems = newChecklists.flatMap(cl => cl.items);
+          onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter(i => i.is_done).length });
+          return { ...prev, checklists: newChecklists };
+        });
       }},
     ]);
   };
@@ -368,10 +374,13 @@ export default function CardDetailSheet({
     if (!newItemText.trim()) return;
     try {
       const item = await api('POST', `/api/checklists/${clId}/items`, { text: newItemText.trim() });
-      setDetail(prev => prev ? {
-        ...prev,
-        checklists: prev.checklists.map(cl => cl.id === clId ? { ...cl, items: [...cl.items, item] } : cl),
-      } : prev);
+      setDetail(prev => {
+        if (!prev) return prev;
+        const newChecklists = prev.checklists.map(cl => cl.id === clId ? { ...cl, items: [...cl.items, item] } : cl);
+        const allItems = newChecklists.flatMap(cl => cl.items);
+        onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter(i => i.is_done).length });
+        return { ...prev, checklists: newChecklists };
+      });
       setNewItemText('');
       setAddingItemFor(null);
     } catch {}
@@ -380,24 +389,34 @@ export default function CardDetailSheet({
   const toggleItem = async (clId: string, item: ChecklistItem) => {
     try {
       const updated = await api('PATCH', `/api/items/${item.id}`, { is_done: item.is_done ? 0 : 1 });
-      setDetail(prev => prev ? {
-        ...prev,
-        checklists: prev.checklists.map(cl => cl.id === clId ? {
+      setDetail(prev => {
+        if (!prev) return prev;
+        const newChecklists = prev.checklists.map(cl => cl.id === clId ? {
           ...cl, items: cl.items.map(i => i.id === item.id ? { ...i, is_done: updated.is_done } : i),
-        } : cl),
-      } : prev);
+        } : cl);
+        const allItems = newChecklists.flatMap(cl => cl.items);
+        onCardUpdated({
+          id: prev.id,
+          checklist_total: allItems.length,
+          checklist_done: allItems.filter(i => i.is_done).length,
+        });
+        return { ...prev, checklists: newChecklists };
+      });
     } catch {}
   };
 
   const deleteItem = async (clId: string, itemId: string) => {
     try {
       await api('DELETE', `/api/items/${itemId}`);
-      setDetail(prev => prev ? {
-        ...prev,
-        checklists: prev.checklists.map(cl => cl.id === clId ? {
+      setDetail(prev => {
+        if (!prev) return prev;
+        const newChecklists = prev.checklists.map(cl => cl.id === clId ? {
           ...cl, items: cl.items.filter(i => i.id !== itemId),
-        } : cl),
-      } : prev);
+        } : cl);
+        const allItems = newChecklists.flatMap(cl => cl.items);
+        onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter(i => i.is_done).length });
+        return { ...prev, checklists: newChecklists };
+      });
     } catch {}
   };
 
