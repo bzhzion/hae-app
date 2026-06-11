@@ -66,6 +66,7 @@ export default function LoginScreen() {
         body: JSON.stringify(body),
       });
       const raw = await res.text();
+      if (raw.includes('<!DOCTYPE') || raw.includes('<html')) throw new Error('Serveur inaccessible');
       let data: any = {};
       try { data = JSON.parse(raw); } catch { if (!res.ok) throw new Error(raw || 'Erreur'); }
       if (!res.ok) throw new Error(data.error ?? raw ?? 'Erreur');
