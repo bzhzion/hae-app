@@ -207,6 +207,20 @@ export default function TasksScreen() {
   }, [newCardTitle, columns, serverUrl, token, fetchProject, logout, router]);
 
 
+  useEffect(() => {
+    if (currentProjectId) return;
+    // Auto-select projet Personnel si aucun projet sélectionné
+    (async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/projects`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const projects = await res.json();
+        const personal = projects.find((p: any) => p.is_personal === 1) ?? projects[0];
+        if (personal) useProjectStore.getState().setCurrentProject(personal.id, personal.name);
+      } catch {}
+    })();
+  }, [currentProjectId, serverUrl, token]);
+
   useEffect(() => { fetchProject(); }, [currentProjectId]);
   useEffect(() => { if (refreshKey > 0) fetchProject(); }, [refreshKey]);
   useFocusEffect(useCallback(() => { fetchProject(); }, [fetchProject]));
