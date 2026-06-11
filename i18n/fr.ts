@@ -30,7 +30,7 @@ export default {
     wellDone: 'Bien joué.',
     newTask: 'Nouvelle tâche...',
     inbox: 'À TRIER',
-    next: 'PROCHAIN',
+    next: 'À SUIVRE',
     urgent: 'URGENT',
     someday: 'UN JOUR',
     waiting: 'EN ATTENTE',

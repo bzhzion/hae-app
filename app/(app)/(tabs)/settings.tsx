@@ -123,7 +123,7 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
 
         {me && (
           <>

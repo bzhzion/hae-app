@@ -112,7 +112,7 @@ export default function AdminScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
 
         {/* Serveur */}
         <Text style={s.sectionLabel}>{t('admin.server')}</Text>

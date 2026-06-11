@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useStt } from '@/hooks/useStt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
@@ -112,6 +113,12 @@ export default function TasksScreen() {
   const router = useRouter();
   const { token, serverUrl, logout } = useAuthStore();
   const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, refreshKey } = useProjectStore();
+  const { state: sttState, toggle: sttToggle } = useStt();
+
+  const handleMicPress = useCallback(async () => {
+    const text = await sttToggle();
+    if (text) setNewCardTitle(prev => prev ? prev + ' ' + text : text);
+  }, [sttToggle]);
 
   const fetchProject = useCallback(async () => {
     if (!currentProjectId) return;
@@ -327,21 +334,29 @@ export default function TasksScreen() {
                   <ScrollView
                     contentContainerStyle={s.emptyScrollContent}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
+                    automaticallyAdjustKeyboardInsets={true}
                   >
                     {addingInColumn === col.id ? (
                       <View style={[s.quickAdd, { width: width - 40 }]}>
-                        <TextInput
-                          autoFocus
-                          style={s.quickInput}
-                          placeholder={t('tasks.newTask')}
-                          placeholderTextColor="#A0A098"
-                          value={newCardTitle}
-                          onChangeText={setNewCardTitle}
-                          onSubmitEditing={() => createCard(col.id)}
-                          onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
-                          returnKeyType="done"
-                          accessibilityLabel="New task title"
-                        />
+                        <View style={s.quickRow}>
+                          <TextInput
+                            autoFocus
+                            style={[s.quickInput, { flex: 1 }]}
+                            placeholder={t('tasks.newTask')}
+                            placeholderTextColor="#A0A098"
+                            value={newCardTitle}
+                            onChangeText={setNewCardTitle}
+                            onSubmitEditing={() => createCard(col.id)}
+                            onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
+                            returnKeyType="done"
+                            accessibilityLabel="New task title"
+                          />
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive]} onPress={handleMicPress} accessibilityLabel="Dicter">
+                            {sttState === 'transcribing'
+                              ? <ActivityIndicator size="small" color={BRAND} />
+                              : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ) : (
                       <View style={s.emptyState}>
@@ -359,18 +374,25 @@ export default function TasksScreen() {
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
                     ListHeaderComponent={addingInColumn === col.id ? (
                       <View style={s.quickAdd}>
-                        <TextInput
-                          autoFocus
-                          style={s.quickInput}
-                          placeholder={t('tasks.newTask')}
-                          placeholderTextColor="#A0A098"
-                          value={newCardTitle}
-                          onChangeText={setNewCardTitle}
-                          onSubmitEditing={() => createCard(col.id)}
-                          onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
-                          returnKeyType="done"
-                          accessibilityLabel="New task title"
-                        />
+                        <View style={s.quickRow}>
+                          <TextInput
+                            autoFocus
+                            style={[s.quickInput, { flex: 1 }]}
+                            placeholder={t('tasks.newTask')}
+                            placeholderTextColor="#A0A098"
+                            value={newCardTitle}
+                            onChangeText={setNewCardTitle}
+                            onSubmitEditing={() => createCard(col.id)}
+                            onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
+                            returnKeyType="done"
+                            accessibilityLabel="New task title"
+                          />
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive]} onPress={handleMicPress} accessibilityLabel="Dicter">
+                            {sttState === 'transcribing'
+                              ? <ActivityIndicator size="small" color={BRAND} />
+                              : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ) : null}
                     renderItem={({ item }) => (
@@ -432,6 +454,7 @@ export default function TasksScreen() {
       )}
 
       <Modal visible={!!renamingCol} transparent animationType="fade" onRequestClose={() => setRenamingCol(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setRenamingCol(null)}>
           <TouchableOpacity activeOpacity={1} style={s.modalBox} accessibilityViewIsModal={true}>
             <Text style={s.modalTitle}>{t('tasks.renameColumn')}</Text>
@@ -458,6 +481,7 @@ export default function TasksScreen() {
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {currentProjectId && (
@@ -513,7 +537,10 @@ const s = StyleSheet.create({
   modalConfirm:   { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   modalConfirmText:{ fontSize: 14, color: '#fff', fontWeight: '700' },
   quickAdd:       { paddingHorizontal: 4, paddingVertical: 8 },
+  quickRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
   quickInput:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 8 },
+  micBtn:         { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  micBtnActive:   { backgroundColor: BRAND },
   tabs:           { flexDirection: 'row', paddingHorizontal: 20 },
   tab:            { width: TAB_W, paddingBottom: 10, alignItems: 'center' },
   tabRow:         { flexDirection: 'row', alignItems: 'center', gap: 4 },

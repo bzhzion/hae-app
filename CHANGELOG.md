@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.4] - 2026-06-12
+
+### Added
+- STT (Whisper) : micro dans le champ de saisie de commentaire
+- Bouton baguette magique (`color-wand-outline`) avec bordure cohérente sur description et checklist
+- Correction visuelle : boutons IA (baguette) alignés sur le style des boutons micro (28x28, bordure BRAND)
+
 ## [1.3.3] - 2026-06-11
 
 ### Fixed

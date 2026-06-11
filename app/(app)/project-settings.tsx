@@ -119,7 +119,7 @@ export default function ProjectSettingsScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
         {!currentProjectId ? (
           <Text style={s.empty}>{t('projectSettings.noProject')}</Text>
         ) : (

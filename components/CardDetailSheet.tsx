@@ -9,10 +9,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
+import { useStt } from '../hooks/useStt';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { showToast } from '../stores/toast';
 import { makeApi } from '../lib/api';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { useTranslation } from 'react-i18next';
+import { useProjectStore } from '../stores/project';
+import { resolveAiConfig } from '../lib/aiConfig';
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -169,6 +173,9 @@ export default function CardDetailSheet({
   card, expandAnim, token, serverUrl, projectId, insets,
   onClose, onCardUpdated, onCardDeleted, onNeedRefetch,
 }: Props) {
+  const { i18n } = useTranslation();
+  const lang = i18n.language ?? 'fr';
+  const { currentProjectOwnerType, currentProjectOwnerId } = useProjectStore();
   const [detail, setDetail] = useState<CardDetail | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -180,6 +187,38 @@ export default function CardDetailSheet({
   const [titleDraft, setTitleDraft] = useState('');
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState('');
+  const { state: sttState, toggle: sttToggle } = useStt();
+  const { state: sttCommentState, toggle: sttCommentToggle } = useStt();
+  const handleDescMic = useCallback(async () => {
+    const text = await sttToggle();
+    if (text) setDescDraft(prev => prev ? prev + ' ' + text : text);
+  }, [sttToggle]);
+
+  const improveDesc = useCallback(async () => {
+    if (!descDraft.trim() || !detail) return;
+    setImprovingDesc(true);
+    try {
+      const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
+      if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
+        showToast('Config IA manquante — configure dans les réglages');
+        return;
+      }
+      const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\n\nCurrent description:\n${descDraft}`;
+      const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
+        body: JSON.stringify({ model: cfg.ai_model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      const improved = data.choices?.[0]?.message?.content?.trim();
+      if (improved) setDescDraft(improved);
+    } catch {
+      showToast('Erreur IA');
+    } finally {
+      setImprovingDesc(false);
+    }
+  }, [descDraft, detail, api, projectId]);
 
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [creatingLabel, setCreatingLabel] = useState(false);
@@ -191,6 +230,8 @@ export default function CardDetailSheet({
 
   const [addingChecklist, setAddingChecklist] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
+  const [generatingChecklist, setGeneratingChecklist] = useState(false);
+  const [improvingDesc, setImprovingDesc] = useState(false);
   const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
   const [newItemText, setNewItemText] = useState('');
 
@@ -353,6 +394,46 @@ export default function CardDetailSheet({
       setAddingChecklist(false);
     } catch {}
   };
+
+  const generateChecklist = useCallback(async () => {
+    if (!detail || !card) return;
+    setGeneratingChecklist(true);
+    try {
+      const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
+      if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
+        showToast('Config IA manquante — configure dans les réglages');
+        return;
+      }
+      const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ');
+      const prompt = `You are a GTD assistant. Generate a practical checklist for this task. Respond in language code: ${lang}.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nLabels: ${labelNames || 'None'}\n\nRespond ONLY with a JSON object: {"title":"...","items":["...","..."]}. Between 3 and 8 concise, actionable items.`;
+      const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
+        body: JSON.stringify({ model: cfg.ai_model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, max_tokens: 512 }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content ?? '{}';
+      const parsed = JSON.parse(raw);
+      const title: string = parsed.title || detail.title;
+      const items: string[] = Array.isArray(parsed.items) ? parsed.items : [];
+      if (!items.length) { showToast('L\'IA n\'a pas généré d\'éléments'); return; }
+      const cl = await api('POST', `/api/cards/${card.id}/checklists`, { title });
+      const createdItems = await Promise.all(items.map((text: string) => api('POST', `/api/checklists/${cl.id}/items`, { text })));
+      const fullCl = { ...cl, items: createdItems };
+      setDetail(prev => {
+        if (!prev) return prev;
+        const newChecklists = [...prev.checklists, fullCl];
+        const allItems = newChecklists.flatMap(c => c.items);
+        onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter((i: ChecklistItem) => i.is_done).length });
+        return { ...prev, checklists: newChecklists };
+      });
+    } catch (e: any) {
+      showToast('Erreur IA');
+    } finally {
+      setGeneratingChecklist(false);
+    }
+  }, [detail, card, api, projectId, onCardUpdated]);
 
   const deleteChecklist = (clId: string) => {
     Alert.alert('Supprimer', 'Supprimer cette checklist ?', [
@@ -525,6 +606,11 @@ export default function CardDetailSheet({
     finally { setLoadingAttId(null); }
   };
 
+  const handleCommentMic = async () => {
+    const text = await sttCommentToggle();
+    if (text) setNewComment(prev => prev ? `${prev} ${text}` : text);
+  };
+
   const postComment = async () => {
     if (!newComment.trim() || !card) return;
     setSendingComment(true);
@@ -662,12 +748,12 @@ export default function CardDetailSheet({
         )}
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 48 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={true}
         >
           {/* Labels */}
           <View style={s.labelsRow}>
@@ -756,7 +842,7 @@ export default function CardDetailSheet({
           </View>
 
           {/* Description */}
-          <View style={s.section}>
+          <View style={[s.section, { paddingBottom: 16 }]}>
             <Text style={s.sectionLabel}>DESCRIPTION</Text>
             {editingDesc ? (
               <View style={s.editBlock}>
@@ -803,13 +889,47 @@ export default function CardDetailSheet({
                   <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingDesc(false)}>
                     <Text style={s.cancelBtnText}>Annuler</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive]} onPress={handleDescMic} accessibilityLabel="Dicter">
+                    {sttState === 'transcribing'
+                      ? <ActivityIndicator size="small" color="#A00000" />
+                      : <Ionicons name="mic" size={14} color={sttState === 'recording' ? '#fff' : '#A00000'} />}
+                  </TouchableOpacity>
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (!descDraft.trim() || improvingDesc) && { opacity: 0.4 }]} onPress={improveDesc} disabled={!descDraft.trim() || improvingDesc} accessibilityLabel="Améliorer avec IA">
+                    {improvingDesc
+                      ? <ActivityIndicator size="small" color={BRAND} />
+                      : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <TouchableOpacity activeOpacity={0.7} onPress={() => { setDescDraft(detail?.description ?? ''); setEditingDesc(true); }} accessibilityHint="Tap to edit description" accessibilityRole="button">
-                {detail?.description
-                  ? <Marked value={detail.description} flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }} theme={{ colors: { text: '#4A4A44', link: '#A00000', code: '#F5F5F0', border: '#E8E8E4' } }} styles={{ text: { fontSize: 14, color: '#4A4A44', lineHeight: 22 }, paragraph: { marginBottom: 8 } }} />
-                  : <Text style={s.dimText}>Appuyer pour ajouter une description...</Text>}
+              <TouchableOpacity activeOpacity={0.85} onPress={() => { setDescDraft(detail?.description ?? ''); setEditingDesc(true); }} accessibilityHint="Tap to edit description" accessibilityRole="button">
+                {detail?.description ? (
+                  <View style={s.descCard}>
+                    <Marked
+                      value={detail.description}
+                      flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }}
+                      theme={{ colors: { text: '#3A3A36', link: '#A00000', code: '#E8E8E4', border: '#D8D8D4' } }}
+                      styles={{
+                        text:       { fontSize: 13, color: '#3A3A36', lineHeight: 19 },
+                        paragraph:  { marginBottom: 4 },
+                        h1:         { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
+                        h2:         { fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
+                        h3:         { fontSize: 14, fontWeight: '600', color: '#2A2A2A' },
+                        h4:         { fontSize: 13, fontWeight: '600', color: '#3A3A36' },
+                        h5:         { fontSize: 13, fontWeight: '600', color: '#4A4A44' },
+                        h6:         { fontSize: 12, fontWeight: '600', color: '#6A6A64' },
+                        codespan:   { fontSize: 11, backgroundColor: '#EEEEE8', borderRadius: 3 },
+                        code:       { backgroundColor: '#EEEEE8', borderRadius: 6, padding: 8 },
+                        blockquote: { borderLeftWidth: 2, borderLeftColor: '#D0D0C8', paddingLeft: 8, backgroundColor: 'transparent' },
+                        strong:     { fontWeight: '700', color: '#1A1A1A' },
+                        em:         { fontStyle: 'italic', color: '#4A4A44' },
+                        li:         { fontSize: 13, color: '#3A3A36', lineHeight: 19 },
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <Text style={s.dimText}>Appuyer pour ajouter une description...</Text>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -837,6 +957,7 @@ export default function CardDetailSheet({
                 {cl.items.map(item => (
                   <View key={item.id} style={s.clItem}>
                     <TouchableOpacity
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 2 }}
                       style={[s.clCheck, !!item.is_done && s.clCheckDone]}
                       onPress={() => toggleItem(cl.id, item)}
                       accessibilityRole="checkbox"
@@ -845,8 +966,10 @@ export default function CardDetailSheet({
                     >
                       {!!item.is_done && <Ionicons name="checkmark" size={13} color="#fff" />}
                     </TouchableOpacity>
-                    <Text style={[s.clText, !!item.is_done && s.clTextDone]} numberOfLines={0}>{item.text}</Text>
-                    <TouchableOpacity onPress={() => deleteItem(cl.id, item.id)} accessibilityLabel={'Delete ' + item.text} accessibilityRole="button">
+                    <View style={{ flex: 1 }} pointerEvents="none">
+                      <Text style={[s.clText, !!item.is_done && s.clTextDone]} numberOfLines={0}>{item.text}</Text>
+                    </View>
+                    <TouchableOpacity hitSlop={{ top: 4, bottom: 4, left: 8, right: 4 }} onPress={() => deleteItem(cl.id, item.id)} accessibilityLabel={'Delete ' + item.text} accessibilityRole="button">
                       <Text style={s.xBtn}>x</Text>
                     </TouchableOpacity>
                   </View>
@@ -902,9 +1025,16 @@ export default function CardDetailSheet({
               </View>
             </View>
           ) : (
-            <TouchableOpacity style={s.addSubBtn} onPress={() => setAddingChecklist(true)}>
-              <Text style={s.addSubBtnText}>+ Checklist</Text>
-            </TouchableOpacity>
+            <View style={[s.section, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+              <TouchableOpacity style={s.addSubBtn} onPress={() => setAddingChecklist(true)}>
+                <Text style={s.addSubBtnText}>+ Checklist</Text>
+              </TouchableOpacity>
+              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, generatingChecklist && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist} accessibilityLabel="Générer checklist avec IA">
+                {generatingChecklist
+                  ? <ActivityIndicator size="small" color={BRAND} />
+                  : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Attachments */}
@@ -1037,6 +1167,16 @@ export default function CardDetailSheet({
                 accessibilityLabel="Add a comment"
               />
               <TouchableOpacity
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive]}
+                onPress={handleCommentMic}
+                accessibilityLabel="Dicter commentaire"
+              >
+                {sttCommentState === 'transcribing'
+                  ? <ActivityIndicator size="small" color={BRAND} />
+                  : <Feather name="mic" size={14} color={sttCommentState === 'recording' ? '#fff' : BRAND} />}
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
                 onPress={postComment}
                 disabled={!newComment.trim() || sendingComment}
@@ -1051,14 +1191,13 @@ export default function CardDetailSheet({
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
 
       {/* Label picker */}
       <Modal visible={showLabelPicker} transparent animationType="slide" onRequestClose={() => { setShowLabelPicker(false); setCreatingLabel(false); }}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => { setShowLabelPicker(false); setCreatingLabel(false); }} />
         <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>LABELS DU PROJET</Text>
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
             {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>Aucun label. Creer le premier.</Text>}
             {projectLabels.map(l => {
               const active = detail?.labels.some(x => x.id === l.id) ?? false;
@@ -1226,6 +1365,9 @@ const s = StyleSheet.create({
   saveBtnText:      { color: '#fff', fontSize: 13, fontWeight: '700' },
   cancelBtn:        { backgroundColor: '#F0F0EC', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   cancelBtnText:    { color: '#4A4A44', fontSize: 13, fontWeight: '600' },
+  micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
+  wandBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  micBtnDescActive: { backgroundColor: '#A00000' },
 
   metaRow:          { flexDirection: 'row', gap: 8, marginBottom: 20 },
   metaBadge:        { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F0F0EC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
@@ -1236,7 +1378,7 @@ const s = StyleSheet.create({
 
   section:          { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#F0F0EC' },
   sectionHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  sectionLabel:     { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#6B6B63' },
+  sectionLabel:     { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#6B6B63', marginBottom: 2 },
   sectionPlus:      { fontSize: 20, color: BRAND, lineHeight: 22, fontWeight: '300' },
 
   membersRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1245,6 +1387,7 @@ const s = StyleSheet.create({
   dimText:          { fontSize: 13, color: '#8A8A80', fontStyle: 'italic' },
 
   descInput:        { fontSize: 15, color: '#1A1A1A', borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, padding: 12, minHeight: 80, textAlignVertical: 'top', lineHeight: 22 },
+  descCard:         { backgroundColor: '#F5F5F0', borderRadius: 10, padding: 14, paddingTop: 12, borderWidth: 1, borderColor: '#E8E8E4', marginTop: 10 },
   mdToolbar:        { marginBottom: 8 },
   mdToolbarContent: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
   mdBtn:            { borderRadius: 6, borderWidth: 1, borderColor: '#EBEBEB', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#F8F8F4' },

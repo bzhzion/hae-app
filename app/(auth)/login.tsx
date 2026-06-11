@@ -94,7 +94,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
         <Image source={require('../../assets/icon-transparent.png')} style={s.logo} resizeMode="contain" accessible={false} />
         <Text style={s.tagline}>{t('auth.tagline')}</Text>
 
