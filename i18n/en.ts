@@ -41,6 +41,8 @@ export default {
     renameHint_urgent: 'Do immediately',
     renameHint_someday: 'Ideas and projects for later',
     renameHint_waiting: 'Waiting for an external response',
+    done: 'DONE',
+    renameHint_done: 'Completed tasks',
   },
   projects: {
     title: 'Projects',

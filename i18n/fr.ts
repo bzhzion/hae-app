@@ -40,6 +40,8 @@ export default {
     renameHint_next: 'Prochaines actions concrètes',
     renameHint_urgent: 'À faire immédiatement',
     renameHint_someday: 'Idées et projets pour plus tard',
+    done: 'FAIT',
+    renameHint_done: 'Tâches terminées',
     renameHint_waiting: "En attente d'une réponse externe",
   },
   projects: {

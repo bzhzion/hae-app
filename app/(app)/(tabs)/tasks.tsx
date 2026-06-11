@@ -11,13 +11,14 @@ import { FlatList } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-const GTD_ORDER = ['gtd_inbox','gtd_next','gtd_urgent','gtd_someday','gtd_waiting'];
+const GTD_ORDER = ['gtd_inbox','gtd_next','gtd_urgent','gtd_someday','gtd_waiting','gtd_done'];
 const GTD_EN_NAMES: Record<string, string[]> = {
   gtd_inbox:   ['inbox',   'Inbox'],
   gtd_next:    ['next',    'Next'],
   gtd_urgent:  ['urgent',  'Urgent'],
   gtd_someday: ['someday', 'Someday'],
   gtd_waiting: ['waiting', 'Waiting'],
+  gtd_done:    ['done',    'Done'],
 };
 const GTD_DEFAULTS: Record<string, string> = {
   gtd_inbox:   'À TRIER',
@@ -25,6 +26,7 @@ const GTD_DEFAULTS: Record<string, string> = {
   gtd_urgent:  'URGENT',
   gtd_someday: 'UN JOUR',
   gtd_waiting: 'EN ATTENTE',
+  gtd_done:    'FAIT',
 };
 const GTD_ICONS: Record<string, string> = {
   gtd_inbox:   'inbox',
@@ -32,6 +34,7 @@ const GTD_ICONS: Record<string, string> = {
   gtd_urgent:  'alert-circle',
   gtd_someday: 'clock',
   gtd_waiting: 'pause-circle',
+  gtd_done:    'check-circle',
 };
 
 const GTD_HINTS: Record<string, string> = {
@@ -40,6 +43,7 @@ const GTD_HINTS: Record<string, string> = {
   gtd_urgent:  'À faire immédiatement',
   gtd_someday: 'Idées et projets pour plus tard',
   gtd_waiting: 'En attente d\'une réponse externe',
+  gtd_done:    'Tâches terminées',
 };
 
 const TAB_W = 100;
@@ -82,6 +86,7 @@ export default function TasksScreen() {
     gtd_urgent:  t('tasks.urgent'),
     gtd_someday: t('tasks.someday'),
     gtd_waiting: t('tasks.waiting'),
+    gtd_done:    t('tasks.done'),
   };
   const GTD_HINTS_T: Record<string, string> = {
     gtd_inbox:   t('tasks.renameHint_inbox'),
@@ -89,6 +94,7 @@ export default function TasksScreen() {
     gtd_urgent:  t('tasks.renameHint_urgent'),
     gtd_someday: t('tasks.renameHint_someday'),
     gtd_waiting: t('tasks.renameHint_waiting'),
+    gtd_done:    t('tasks.renameHint_done'),
   };
   const [page, setPage] = useState(0);
   const [columns, setColumns] = useState<Column[]>([]);

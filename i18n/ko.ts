@@ -40,6 +40,8 @@ export default {
     renameHint_next: '구체적인 다음 행동',
     renameHint_urgent: '즉시 해야 할 것',
     renameHint_someday: '나중을 위한 아이디어와 프로젝트',
+    done: '완료',
+    renameHint_done: '완료된 작업',
     renameHint_waiting: '외부 응답 대기',
   },
   projects: {
