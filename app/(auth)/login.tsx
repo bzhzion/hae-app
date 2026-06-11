@@ -65,8 +65,10 @@ export default function LoginScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      const raw = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(raw); } catch { if (!res.ok) throw new Error(raw || 'Erreur'); }
+      if (!res.ok) throw new Error(data.error ?? raw ?? 'Erreur');
 
       if (rememberMe) {
         await saveCreds({ serverUrl, email, password });
