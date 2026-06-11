@@ -1174,7 +1174,7 @@ export default function CardDetailSheet({
               >
                 {sttCommentState === 'transcribing'
                   ? <ActivityIndicator size="small" color={BRAND} />
-                  : <Feather name="mic" size={14} color={sttCommentState === 'recording' ? '#fff' : BRAND} />}
+                  : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : BRAND} />}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
