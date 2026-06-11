@@ -11,7 +11,7 @@ import { FlatList } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-const GTD_ORDER = ['gtd_inbox','gtd_next','gtd_urgent','gtd_someday','gtd_waiting','gtd_done'];
+const GTD_ORDER = ['gtd_inbox','gtd_someday','gtd_next','gtd_urgent','gtd_waiting','gtd_done'];
 const GTD_EN_NAMES: Record<string, string[]> = {
   gtd_inbox:   ['inbox',   'Inbox'],
   gtd_next:    ['next',    'Next'],
