@@ -843,7 +843,7 @@ export default function CardDetailSheet({
                       accessibilityState={{ checked: !!item.is_done }}
                       accessibilityLabel={item.text}
                     >
-                      {!!item.is_done && <Text style={s.clMark}>v</Text>}
+                      {!!item.is_done && <Ionicons name="checkmark" size={13} color="#fff" />}
                     </TouchableOpacity>
                     <Text style={[s.clText, !!item.is_done && s.clTextDone]} numberOfLines={0}>{item.text}</Text>
                     <TouchableOpacity onPress={() => deleteItem(cl.id, item.id)} accessibilityLabel={'Delete ' + item.text} accessibilityRole="button">
@@ -1255,9 +1255,8 @@ const s = StyleSheet.create({
   clFill:           { height: 4, backgroundColor: BRAND, borderRadius: 2 },
   clProgress:       { fontSize: 11, fontWeight: '600', color: '#6B6B63' },
   clItem:           { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  clCheck:          { width: 19, height: 19, borderRadius: 4, borderWidth: 1.5, borderColor: '#C4C4BE', alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0 },
+  clCheck:          { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: '#C4C4BE', alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0 },
   clCheckDone:      { backgroundColor: BRAND, borderColor: BRAND },
-  clMark:           { fontSize: 11, color: '#fff', fontWeight: '700' },
   clText:           { flex: 1, fontSize: 14, color: '#2A2A24', lineHeight: 20 },
   clTextDone:       { color: '#8A8A80', textDecorationLine: 'line-through' },
   xBtn:             { fontSize: 14, color: '#8A8A80', fontWeight: '500', paddingHorizontal: 4 },
