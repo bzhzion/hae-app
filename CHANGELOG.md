@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.3] - 2026-06-11
+
+### Fixed
+- Checklist : progress counters (X/Y) synchronisés en temps réel après toggle/ajout/suppression d'un item
+- Checklist : vrai checkmark Ionicons (`checkmark`) remplace le texte `v`
+- Tâches : ordre colonnes corrigé — Inbox > Someday > Next > Urgent > Waiting > Done
+
+### Added
+- Colonne **Done** toujours visible (colonne GTD native, non personnalisable)
+- Correction login : réponse non-JSON du serveur ne provoque plus de crash "JSON Parse error"
+- Auto-sélection du projet Personnel au premier lancement (plus d'écran vide "Aucun projet")
+- Dernier projet ouvert mémorisé via AsyncStorage (fallback Personnel si disparu)
+
 ## [1.3.2] - 2026-06-11
 
 ### Added
