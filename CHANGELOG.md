@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.6] - 2026-06-12
+
+### Added
+- Share Extension iOS : partager une URL/texte depuis n'importe quelle app vers hae
+- UI native (sheet iOS) avec sélecteur de projet et bouton "Créer la carte"
+- Module natif `HaeAppGroup` : partage du token JWT via App Group UserDefaults
+- Login écrit serverUrl + token dans l'App Group après authentification
+- Logout efface l'App Group
+- Config plugin Expo `withShareExtension` + `withHaeAppGroup` pour le build EAS
+- App Group `group.org.breizhzion.hae` configuré dans les entitlements iOS
+
 ## [1.3.5] - 2026-06-12
 
 ### Added

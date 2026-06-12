@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { saveToAppGroup, clearAppGroup } from '@/modules/hae-app-group';
 
 interface AuthUser { id: string; name: string; email: string; role: string; avatar_url?: string | null; }
 
@@ -58,12 +59,14 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       serverUrl: '',
       user: null,
-      setToken: (token) => set({ token }),
+      setToken: (token) => {
+        set({ token });
+      },
       setServerUrl: (serverUrl) => set({ serverUrl }),
       setUser: (user) => set({ user }),
       logout: () => {
         set({ token: null, user: null });
-        // Évite qu'un ancien projectId reste en mémoire pour le prochain user
+        clearAppGroup();
         import('../stores/project').then(m => m.useProjectStore.getState().clearProject());
       },
     }),

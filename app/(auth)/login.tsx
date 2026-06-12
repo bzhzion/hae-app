@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
+import { saveToAppGroup } from '@/modules/hae-app-group';
 import { usePrefsStore } from '@/stores/prefs';
 import { saveLanguage } from '@/i18n';
 import i18n from '@/i18n';
@@ -79,6 +80,7 @@ export default function LoginScreen() {
 
       setToken(data.accessToken);
       setUser(data.user);
+      saveToAppGroup(serverUrl, data.accessToken);
       const prefs = await fetchPrefs(serverUrl, data.accessToken).then(() => usePrefsStore.getState().prefs);
       if (prefs.language) {
         await i18n.changeLanguage(prefs.language);

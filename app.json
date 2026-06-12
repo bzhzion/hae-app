@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hae",
     "slug": "hae-app",
-    "version": "1.3.5",
+    "version": "1.3.6",
     "scheme": "hae",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,6 +10,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.breizhzion.hae",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.org.breizhzion.hae"]
+      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Hae utilise Face ID pour verrouiller l'application."
       }
@@ -34,7 +37,9 @@
       "expo-local-authentication",
       "expo-sharing",
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      "./plugins/withHaeAppGroup",
+      "./plugins/withShareExtension"
     ]
   }
 }
