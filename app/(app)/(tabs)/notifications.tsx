@@ -67,8 +67,8 @@ export default function NotificationsScreen() {
     setLoading(true);
     try {
       const [data, arch] = await Promise.all([
-        api('GET', '/api/notifications'),
-        api('GET', '/api/notifications/archived'),
+        api('GET', '/api/notifications', undefined, { silent: true }).catch(() => []),
+        api('GET', '/api/notifications/archived', undefined, { silent: true }).catch(() => []),
       ]);
       const list: Notif[] = Array.isArray(data) ? data : [];
       setNotifs(list);
