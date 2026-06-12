@@ -1,7 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +36,6 @@ const TYPE_ICONS: Record<string, FeatherName> = {
   default:           'bell',
 };
 
-
 function timeAgo(ts: number, t: (k: string, opts?: any) => string): string {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
@@ -55,17 +55,24 @@ export default function NotificationsScreen() {
   const { setUnreadCount, decrement } = useNotifStore();
   const { setPendingCard, setCurrentProject } = useProjectStore();
   const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [archived, setArchived] = useState<Notif[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api('GET', '/api/notifications');
+      const [data, arch] = await Promise.all([
+        api('GET', '/api/notifications'),
+        api('GET', '/api/notifications/archived'),
+      ]);
       const list: Notif[] = Array.isArray(data) ? data : [];
       setNotifs(list);
+      setArchived(Array.isArray(arch) ? arch : []);
       setUnreadCount(list.filter(n => !n.is_read).length);
     } catch {}
     finally { setLoading(false); }
@@ -102,71 +109,128 @@ export default function NotificationsScreen() {
     } catch {}
   }, [api, setUnreadCount]);
 
+  const dismiss = useCallback(async (id: string) => {
+    const notif = notifs.find(x => x.id === id);
+    swipeRefs.current.get(id)?.close();
+    try {
+      await api('PATCH', `/api/notifications/${id}/dismiss`);
+      setNotifs(prev => {
+        const updated = prev.filter(x => x.id !== id);
+        setUnreadCount(updated.filter(x => !x.is_read).length);
+        return updated;
+      });
+      if (notif) setArchived(prev => [{ ...notif, is_read: 1 }, ...prev]);
+    } catch {}
+  }, [api, setUnreadCount, notifs]);
+
+  const dismissAll = useCallback(() => {
+    Alert.alert(
+      t('notifications.archiveAllTitle', { defaultValue: 'Tout archiver' }),
+      t('notifications.archiveAllMsg', { defaultValue: 'Archiver toutes les notifications ?' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('notifications.archiveAll', { defaultValue: 'Archiver' }), onPress: async () => {
+          try {
+            await api('POST', '/api/notifications/dismiss-all');
+            setArchived(prev => [...notifs.map(x => ({ ...x, is_read: 1 })), ...prev]);
+            setNotifs([]);
+            setUnreadCount(0);
+          } catch {}
+        }},
+      ]
+    );
+  }, [api, setUnreadCount, notifs, t]);
+
   const unread = notifs.filter(n => !n.is_read).length;
+  const displayList = showArchived ? archived : notifs;
+
+  const renderSwipeRight = useCallback((id: string) => (
+    <TouchableOpacity style={s.swipeAction} onPress={() => dismiss(id)} activeOpacity={0.85}>
+      <Feather name="archive" size={18} color="#fff" />
+    </TouchableOpacity>
+  ), [dismiss]);
+
+  const renderItem = useCallback(({ item }: { item: Notif }) => (
+    <Swipeable
+      ref={ref => swipeRefs.current.set(item.id, ref)}
+      renderRightActions={() => renderSwipeRight(item.id)}
+      overshootRight={false}
+      friction={2}
+    >
+      <TouchableOpacity
+        style={[s.item, !item.is_read && s.itemUnread]}
+        accessibilityRole="button"
+        onPress={() => !showArchived && markRead(item)}
+        activeOpacity={0.7}
+      >
+        <View style={s.iconWrap}>
+          <Feather name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default} size={16} color={BRAND} />
+        </View>
+        <View style={s.itemBody}>
+          <Text style={s.itemTitle} numberOfLines={2}>
+            {item.card_title ?? t('notifications.fallback')}
+          </Text>
+          <View style={s.itemMeta}>
+            {item.project_name && (
+              <View style={s.projectTag}>
+                <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
+              </View>
+            )}
+            <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
+          </View>
+          <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+        </View>
+        {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
+      </TouchableOpacity>
+    </Swipeable>
+  ), [markRead, renderSwipeRight, showArchived, t]);
 
   return (
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.title}>{t('notifications.title')}</Text>
-        {unread > 0 && (
-          <TouchableOpacity accessibilityRole="button" onPress={markAllRead}>
-            <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
+        <View style={s.headerActions}>
+          {!showArchived && unread > 0 && (
+            <TouchableOpacity onPress={markAllRead}>
+              <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
+            </TouchableOpacity>
+          )}
+          {!showArchived && notifs.length > 0 && (
+            <TouchableOpacity onPress={dismissAll} style={s.archiveBtn}>
+              <Feather name="archive" size={14} color="#8A8A80" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setShowArchived(v => !v)} style={s.archiveToggle}>
+            <Text style={[s.archiveToggleText, showArchived && { color: BRAND }]}>
+              {showArchived ? t('notifications.inbox', { defaultValue: 'Inbox' }) : t('notifications.archives', { defaultValue: 'Archives' })}
+              {!showArchived && archived.length > 0 ? ` (${archived.length})` : ''}
+            </Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       {loading && !refreshing ? (
-        <View style={s.center}><ActivityIndicator color={BRAND} accessibilityLabel="Loading notifications" /></View>
+        <View style={s.center}><ActivityIndicator color={BRAND} /></View>
       ) : (
         <FlatList
-          data={notifs}
+          data={displayList}
           keyExtractor={n => n.id}
-          accessibilityRole="list"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
-          contentContainerStyle={notifs.length === 0 ? s.emptyContainer : s.list}
+          contentContainerStyle={displayList.length === 0 ? s.emptyContainer : s.list}
           ListEmptyComponent={
             <View style={s.empty}>
               <View style={s.emptyIconWrap}>
-                <Feather name="bell" size={32} color="#A8A8A0" />
+                <Feather name={showArchived ? 'archive' : 'bell'} size={32} color="#A8A8A0" />
               </View>
-              <Text style={s.emptyText}>{t('notifications.empty')}</Text>
+              <Text style={s.emptyText}>
+                {showArchived
+                  ? t('notifications.archiveEmpty', { defaultValue: 'Aucune archive' })
+                  : t('notifications.empty')}
+              </Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[s.item, !item.is_read && s.itemUnread]}
-              accessibilityRole="button"
-              accessibilityLabel={(item.card_title ?? t('notifications.fallback')) + ', ' + item.type.replace(/_/g, ' ') + ', ' + (item.is_read ? 'read' : 'unread')}
-              onPress={() => markRead(item)}
-              activeOpacity={0.7}
-            >
-              <View style={s.iconWrap}>
-                <Feather
-                  name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default}
-                  size={16}
-                  color={BRAND}
-                />
-              </View>
-              <View style={s.itemBody}>
-                <Text style={s.itemTitle} numberOfLines={2}>
-                  {item.card_title ?? t('notifications.fallback')}
-                </Text>
-                <View style={s.itemMeta}>
-                  {item.project_name && (
-                    <View style={s.projectTag}>
-                      <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
-                    </View>
-                  )}
-                  {item.type && (
-                    <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
-                  )}
-                </View>
-                <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
-              </View>
-              {!item.is_read && <View style={s.dot} accessible={false} />}
-            </TouchableOpacity>
-          )}
+          renderItem={renderItem}
           ItemSeparatorComponent={() => <View style={s.sep} />}
         />
       )}
@@ -175,26 +239,31 @@ export default function NotificationsScreen() {
 }
 
 const s = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: BG },
-  header:         { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderColor: '#EBEBEB' },
-  title:          { fontSize: 28, fontWeight: '800', color: '#1A1A1A', letterSpacing: -1, flex: 1 },
-  markAll:        { fontSize: 13, fontWeight: '700', color: BRAND },
-  center:         { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list:           { paddingVertical: 8 },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-  empty:          { alignItems: 'center', gap: 12 },
-  emptyIconWrap:  { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F5F5F0', alignItems: 'center', justifyContent: 'center' },
-  emptyText:      { fontSize: 15, color: '#6B6B63', fontWeight: '500' },
-  item:           { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
-  itemUnread:     { backgroundColor: '#FFF8F8' },
-  iconWrap:       { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0F0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  itemBody:       { flex: 1, gap: 2 },
-  itemTitle:      { fontSize: 14, fontWeight: '600', color: '#1A1A1A', lineHeight: 20 },
-  itemMeta:       { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 },
-  projectTag:     { backgroundColor: '#F0F0EC', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  projectTagText: { fontSize: 10, fontWeight: '700', color: '#6b7280', letterSpacing: 0.3, maxWidth: 120 },
-  itemType:       { fontSize: 11, color: '#6B6B63', textTransform: 'capitalize' },
-  itemTime:       { fontSize: 11, color: '#8A8A80', marginTop: 2 },
-  dot:            { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 6, flexShrink: 0 },
-  sep:            { height: 1, backgroundColor: '#F5F5F0', marginLeft: 56 },
+  container:        { flex: 1, backgroundColor: BG },
+  header:           { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderColor: '#EBEBEB' },
+  title:            { fontSize: 28, fontWeight: '800', color: '#1A1A1A', letterSpacing: -1, flex: 1 },
+  headerActions:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  markAll:          { fontSize: 13, fontWeight: '700', color: BRAND },
+  archiveBtn:       { padding: 4 },
+  archiveToggle:    { paddingVertical: 4, paddingHorizontal: 6 },
+  archiveToggleText:{ fontSize: 13, fontWeight: '600', color: '#8A8A80' },
+  center:           { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  list:             { paddingVertical: 8 },
+  emptyContainer:   { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  empty:            { alignItems: 'center', gap: 12 },
+  emptyIconWrap:    { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F5F5F0', alignItems: 'center', justifyContent: 'center' },
+  emptyText:        { fontSize: 15, color: '#6B6B63', fontWeight: '500' },
+  item:             { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 14, gap: 12, backgroundColor: BG },
+  itemUnread:       { backgroundColor: '#FFF8F8' },
+  iconWrap:         { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0F0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemBody:         { flex: 1, gap: 2 },
+  itemTitle:        { fontSize: 14, fontWeight: '600', color: '#1A1A1A', lineHeight: 20 },
+  itemMeta:         { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 },
+  projectTag:       { backgroundColor: '#F0F0EC', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  projectTagText:   { fontSize: 10, fontWeight: '700', color: '#6b7280', letterSpacing: 0.3, maxWidth: 120 },
+  itemType:         { fontSize: 11, color: '#6B6B63', textTransform: 'capitalize' },
+  itemTime:         { fontSize: 11, color: '#8A8A80', marginTop: 2 },
+  dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 6, flexShrink: 0 },
+  sep:              { height: 1, backgroundColor: '#F5F5F0', marginLeft: 56 },
+  swipeAction:      { backgroundColor: '#A00000', width: 72, alignItems: 'center', justifyContent: 'center' },
 });

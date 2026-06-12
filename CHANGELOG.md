@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.5] - 2026-06-12
+
+### Added
+- Notifications : archivage par swipe gauche (bouton rouge archive)
+- Notifications : bouton "Tout archiver" dans le header
+- Notifications : vue Archives (toggle Inbox/Archives dans le header)
+- API : `PATCH /api/notifications/:id/dismiss` et `POST /api/notifications/dismiss-all`
+- API : `GET /api/notifications/archived` pour les notifications archivées
+- DB : colonne `is_dismissed` sur la table `notifications` (migration automatique)
+- Logique : `card_due_soon` ne se recrée pas si une notif existe déjà (dismissed ou non)
+
 ## [1.3.4] - 2026-06-12
 
 ### Added
