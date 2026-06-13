@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
+import { showToast } from '@/stores/toast';
 import CardDetailSheet from '@/components/CardDetailSheet';
 
 const HISTORY_KEY = 'hae_search_history';
@@ -81,7 +82,7 @@ export default function SearchScreen() {
       }));
       setAllCards(cards);
       setLoaded(true);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [serverUrl, token]);
 

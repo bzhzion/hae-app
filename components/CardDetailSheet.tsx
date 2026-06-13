@@ -294,7 +294,7 @@ export default function CardDetailSheet({
         clearInterval(swInterval.current!);
         setSwDisplay(d.stopwatch_total ?? 0);
       }
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [card, api, startSwTick]);
 
@@ -307,7 +307,7 @@ export default function CardDetailSheet({
       setProjectLabels(Array.isArray(labels) ? labels : []);
       setProjectMembers(Array.isArray(proj?.members) ? proj.members : []);
       setProjectColumns(Array.isArray(proj?.columns) ? proj.columns : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
   }, [projectId, api]);
 
   useEffect(() => {
@@ -333,7 +333,7 @@ export default function CardDetailSheet({
       const updated = await api('PATCH', `/api/cards/${card.id}`, fields);
       setDetail(prev => prev ? { ...prev, ...updated } : updated);
       onCardUpdated({ id: card.id, ...updated });
-    } catch (e) { Alert.alert('Erreur', String(e)); }
+    } catch { showToast(t('common.networkError')); }
   };
 
   const saveTitle = async () => {
@@ -358,7 +358,7 @@ export default function CardDetailSheet({
       setNewLabelColor('#6366f1');
       setCreatingLabel(false);
       await toggleLabelById(label);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const toggleLabelById = async (label: Label) => {
@@ -386,7 +386,7 @@ export default function CardDetailSheet({
       }
       setDetail(prev => prev ? { ...prev, labels: newLabels } : prev);
       onCardUpdated({ id: card.id, labels: newLabels } as any);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const toggleMember = async (member: Member) => {
@@ -400,7 +400,7 @@ export default function CardDetailSheet({
         await api('POST', `/api/cards/${card.id}/members`, { userId: member.id });
         setDetail(prev => prev ? { ...prev, members: [...prev.members, member] } : prev);
       }
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const addChecklist = async () => {
@@ -410,7 +410,7 @@ export default function CardDetailSheet({
       setDetail(prev => prev ? { ...prev, checklists: [...prev.checklists, { ...cl, items: [] }] } : prev);
       setNewChecklistTitle('');
       setAddingChecklist(false);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const generateChecklist = useCallback(async () => {
@@ -518,7 +518,7 @@ export default function CardDetailSheet({
       });
       setNewItemText('');
       setAddingItemFor(null);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const toggleItem = async (clId: string, item: ChecklistItem) => {
@@ -537,7 +537,7 @@ export default function CardDetailSheet({
         });
         return { ...prev, checklists: newChecklists };
       });
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const deleteItem = async (clId: string, itemId: string) => {
@@ -552,7 +552,7 @@ export default function CardDetailSheet({
         onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter(i => i.is_done).length });
         return { ...prev, checklists: newChecklists };
       });
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const uploadAttachment = async () => {
@@ -563,7 +563,7 @@ export default function CardDetailSheet({
     setUploadingAtt(true);
     try {
       if (!asset.mimeType) {
-        Alert.alert('Erreur', 'Type de fichier non reconnu');
+        showToast(t('cards.fileTypeError'));
         setUploadingAtt(false);
         return;
       }
@@ -577,8 +577,8 @@ export default function CardDetailSheet({
       if (!r.ok) throw new Error(await r.text());
       const att = await r.json();
       setDetail(prev => prev ? { ...prev, attachments: [...(prev.attachments ?? []), att] } : prev);
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Upload échoué');
+    } catch {
+      showToast(t('common.networkError'));
     } finally {
       setUploadingAtt(false);
     }
@@ -598,7 +598,7 @@ export default function CardDetailSheet({
         Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
       }
     } catch {
-      Alert.alert('Erreur', 'Téléchargement échoué');
+      showToast(t('cards.downloadError'));
     }
   };
 
@@ -609,7 +609,7 @@ export default function CardDetailSheet({
         try {
           await api('DELETE', `/api/attachments/${attId}`);
           setDetail(prev => prev ? { ...prev, attachments: (prev.attachments ?? []).filter(a => a.id !== attId) } : prev);
-        } catch {}
+        } catch { showToast(t('common.networkError')); }
       }},
     ]);
   };
@@ -646,7 +646,7 @@ export default function CardDetailSheet({
           setPlayingAttId(null);
         }
       });
-    } catch { Alert.alert('Erreur', 'Lecture impossible'); }
+    } catch { showToast(t('cards.audioError')); }
     finally { setLoadingAttId(null); }
   };
 
@@ -662,7 +662,7 @@ export default function CardDetailSheet({
         });
       }
       setVideoViewerAtt({ ...att, filename: localUri });
-    } catch { Alert.alert('Erreur', 'Chargement impossible'); }
+    } catch { showToast(t('cards.videoError')); }
     finally { setLoadingAttId(null); }
   };
 
@@ -678,7 +678,7 @@ export default function CardDetailSheet({
       const c = await api('POST', `/api/cards/${card.id}/comments`, { content: newComment.trim() });
       setComments(prev => [...prev, c]);
       setNewComment('');
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
     finally { setSendingComment(false); }
   };
 
@@ -686,7 +686,7 @@ export default function CardDetailSheet({
     try {
       await api('DELETE', `/api/comments/${commentId}`);
       setComments(prev => prev.filter(c => c.id !== commentId));
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const saveEditComment = async () => {
@@ -708,7 +708,7 @@ export default function CardDetailSheet({
       const now = Date.now();
       startSwTick(swDisplay, now - swDisplay * 1000);
       setDetail(prev => prev ? { ...prev, stopwatch_started_at: now } : prev);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const stopStopwatch = async () => {
@@ -718,7 +718,7 @@ export default function CardDetailSheet({
       const r = await api('POST', `/api/cards/${card.id}/stopwatch/stop`);
       setSwDisplay(r.total);
       setDetail(prev => prev ? { ...prev, stopwatch_started_at: null, stopwatch_total: r.total } : prev);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   };
 
   const trashColId = projectColumns.find(c => c.type === 'gtd_trash')?.id ?? null;
@@ -737,7 +737,7 @@ export default function CardDetailSheet({
           }
           onCardDeleted(card.id);
           onClose();
-        } catch (e) { Alert.alert('Erreur', String(e)); }
+        } catch { showToast(t('common.networkError')); }
       }},
     ]);
   };
@@ -754,7 +754,7 @@ export default function CardDetailSheet({
             await api('DELETE', `/api/cards/${card.id}`);
             onCardDeleted(card.id);
             onClose();
-          } catch (e) { Alert.alert('Erreur', String(e)); }
+          } catch { showToast(t('common.networkError')); }
         }},
       ]
     );
@@ -767,7 +767,7 @@ export default function CardDetailSheet({
       await api('PATCH', `/api/cards/${card.id}`, { column_id: columnId });
       onNeedRefetch();
       onClose();
-    } catch (e) { Alert.alert('Erreur', String(e)); }
+    } catch { showToast(t('common.networkError')); }
   };
 
   const fmt = (secs: number) => {

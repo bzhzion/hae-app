@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { showToast } from '@/stores/toast';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -30,6 +31,7 @@ export default function ArchivesScreen() {
       const res = await fetch(`${serverUrl}/api/projects/${currentProjectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       const trash = (data.columns ?? []).find((c: any) => c.type === 'gtd_trash');
       if (!trash) return;
@@ -37,9 +39,10 @@ export default function ArchivesScreen() {
       const r = await fetch(`${serverUrl}/api/columns/${trash.id}/cards`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!r.ok) throw new Error(`${r.status}`);
       const cs = await r.json();
       setCards(Array.isArray(cs) ? cs : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [currentProjectId, serverUrl, token]);
 

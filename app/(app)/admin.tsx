@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { showToast } from '@/stores/toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -31,7 +32,7 @@ export default function AdminScreen() {
     try {
       const data = await api('GET', '/api/users');
       setUsers(Array.isArray(data) ? data : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api]);
 

@@ -242,7 +242,7 @@ Respond with only valid JSON, no explanation.`;
         })
       );
       setColumns(withCards);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [currentProjectId, serverUrl, token, logout, router]);
 
@@ -292,7 +292,7 @@ Respond with only valid JSON, no explanation.`;
         body: JSON.stringify({ name: renameText.trim() }),
       });
       setColumns(prev => prev.map(c => c.id === renamingCol.id ? { ...c, name: renameText.trim() } : c));
-    } catch (e) { Alert.alert('Erreur', String(e)); }
+    } catch { showToast(t('common.networkError')); }
     setRenamingCol(null);
   }, [renamingCol, renameText, serverUrl, token]);
 

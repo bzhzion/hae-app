@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import { showToast } from '@/stores/toast';
 import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Modal, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -65,7 +66,7 @@ export default function CalendarScreen() {
         if (Array.isArray(cs)) allCards.push(...cs);
       }));
       setCards(allCards.filter(c => c.due_date));
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [currentProjectId, serverUrl, token]);
 

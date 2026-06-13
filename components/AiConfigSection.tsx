@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { showToast } from '../stores/toast';
 
 const BRAND = '#A00000';
 
@@ -60,7 +61,7 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
       setSttModel(cfg?.stt_model ?? '');
       const match = PRESETS.find(p => p.url === url && p.model === model);
       setActivePresetId(match?.id ?? null);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api, configPath]);
 
@@ -72,12 +73,28 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
     setActivePresetId(preset.id);
   };
 
+  const validateKey = async (baseUrl: string, apiKey: string, model: string): Promise<boolean> => {
+    try {
+      const resp = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: model || 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
+      });
+      if (resp.status === 401 || resp.status === 403) return false;
+      return true;
+    } catch {
+      return true;
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     try {
+      const url = aiBaseUrl.trim();
+      const key = aiApiKey.trim();
       await api('PUT', configPath, {
-        ai_base_url: aiBaseUrl.trim() || null,
-        ai_api_key: aiApiKey.trim() || null,
+        ai_base_url: url || null,
+        ai_api_key: key || null,
         ai_model: aiModel.trim() || null,
         stt_base_url: sttBaseUrl.trim() || null,
         stt_api_key: sttApiKey.trim() || null,
@@ -93,7 +110,7 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
     Alert.alert(t('aiConfig.deleteTitle'), t('aiConfig.deleteMsg'), [
       { text: t('aiConfig.cancel'), style: 'cancel' },
       { text: t('aiConfig.delete'), style: 'destructive', onPress: async () => {
-        try { await api('DELETE', configPath); await load(); } catch {}
+        try { await api('DELETE', configPath); await load(); } catch { showToast(t('common.networkError')); }
       }},
     ]);
   };
@@ -115,7 +132,12 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
         <View style={s.right}>
           {loading
             ? <ActivityIndicator size="small" color={BRAND} />
-            : <View style={[s.dot, { backgroundColor: hasConfig ? BRAND : '#D1D1CB' }]} accessible={true} accessibilityLabel={hasConfig ? 'Configured' : 'Not configured'} />
+            : <View style={[s.statusBadge, hasConfig ? s.statusBadgeOn : s.statusBadgeOff]}>
+                <View style={[s.dot, { backgroundColor: hasConfig ? BRAND : '#A0A098' }]} />
+                <Text style={[s.statusText, { color: hasConfig ? BRAND : '#A0A098' }]}>
+                  {hasConfig ? t('aiConfig.active') : t('aiConfig.notConfigured')}
+                </Text>
+              </View>
           }
           <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#8A8A80" style={{ marginLeft: 8 }} />
         </View>
@@ -256,7 +278,11 @@ const s = StyleSheet.create({
   priorityBadge:    { fontSize: 14, color: '#8A8A80' },
   subtitle:         { fontSize: 11, color: '#8A8A80', marginTop: 2 },
   right:            { flexDirection: 'row', alignItems: 'center' },
-  dot:              { width: 8, height: 8, borderRadius: 4 },
+  dot:              { width: 6, height: 6, borderRadius: 3 },
+  statusBadge:      { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  statusBadgeOn:    { backgroundColor: '#FFF5F5', borderColor: BRAND + '44' },
+  statusBadgeOff:   { backgroundColor: '#F5F5F0', borderColor: '#DDDDD8' },
+  statusText:       { fontSize: 11, fontWeight: '600' },
   form:             { marginTop: 12 },
   cascadeBox:       { backgroundColor: '#F5F5F0', borderRadius: 10, padding: 12, marginBottom: 14 },
   cascadeLabel:     { fontSize: 9, fontWeight: '700', letterSpacing: 1.5, color: '#8A8A80', marginBottom: 8 },

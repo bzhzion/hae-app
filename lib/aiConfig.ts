@@ -12,7 +12,7 @@ export async function resolveAiConfig(
     const c = await api('GET', `/api/projects/${projectId}/ai-config`, undefined, { silent: true }).catch(() => null);
     if (hasCfg(c)) return c;
   }
-  if (ownerType === 'org' && ownerId) {
+  if ((ownerType === 'org' || ownerType === 'organisation') && ownerId) {
     const c = await api('GET', `/api/organisations/${ownerId}/ai-config`, undefined, { silent: true }).catch(() => null);
     if (hasCfg(c)) return c;
   }

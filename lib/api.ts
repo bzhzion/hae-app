@@ -1,5 +1,6 @@
 import { showToast } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
+import i18n from '../i18n';
 
 let refreshing: Promise<string | null> | null = null;
 
@@ -31,7 +32,7 @@ export function makeApi(serverUrl: string, token: string) {
   return async function api(method: string, path: string, body?: any, opts?: { silent?: boolean; noRetry?: boolean }): Promise<any> {
     const silent = opts?.silent ?? false;
     const delays = opts?.noRetry ? [] : [1000, 2000, 4000];
-    let lastErr: Error = new Error('Réseau indisponible');
+    let lastErr: Error = new Error(i18n.t('common.networkError'));
     let currentToken = token;
 
     for (let attempt = 0; attempt <= delays.length; attempt++) {
@@ -56,25 +57,25 @@ export function makeApi(serverUrl: string, token: string) {
               body: body !== undefined ? JSON.stringify(body) : undefined,
             });
             if (!r2.ok) {
-              if (r2.status === 401) { if (!silent) showToast('Session expirée, reconnecte-toi'); throw new Error('401'); }
+              if (r2.status === 401) { if (!silent) showToast(i18n.t('common.sessionExpired')); throw new Error('401'); }
               const t2 = await r2.text().catch(() => '');
-              let m2 = 'Erreur serveur';
+              let m2 = i18n.t('common.serverError');
               try { const j2 = JSON.parse(t2); if (typeof j2.error === 'string') m2 = j2.error; } catch {}
               throw new Error(m2);
             }
             if (r2.status === 204) return null;
             return r2.json();
           }
-          if (!silent) showToast('Session expirée, reconnecte-toi');
+          if (!silent) showToast(i18n.t('common.sessionExpired'));
           throw new Error('401');
         }
         if (r.status === 403) {
-          if (!silent) showToast('Accès refusé');
+          if (!silent) showToast(i18n.t('common.accessDenied'));
           throw new Error('403');
         }
         if (!r.ok) {
           const errText = await r.text().catch(() => '');
-          let errMsg = 'Erreur serveur';
+          let errMsg = i18n.t('common.serverError');
           try { const j = JSON.parse(errText); if (typeof j.error === 'string') errMsg = j.error; } catch {}
           throw new Error(errMsg);
         }
@@ -87,7 +88,7 @@ export function makeApi(serverUrl: string, token: string) {
         if (attempt < delays.length) await new Promise(res => setTimeout(res, delays[attempt]));
       }
     }
-    if (!silent) showToast('Erreur réseau, réessaie');
+    if (!silent) showToast(i18n.t('common.networkError'));
     throw lastErr;
   };
 }

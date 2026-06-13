@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
+import { showToast } from '@/stores/toast';
 import { useLocalSearchParams } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,7 +55,7 @@ export default function OrgScreen() {
     try {
       const data = await api('GET', `/api/organisations/${orgId}`);
       setOrg(data);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api, orgId]);
 

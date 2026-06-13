@@ -288,6 +288,12 @@ export default {
     loadingMsg: 'Chargement en cours',
     create: 'Créer',
     download: 'Télécharger',
+    loadError: 'Erreur de chargement',
+    saveError: 'Erreur de sauvegarde',
+    networkError: 'Erreur réseau',
+    sessionExpired: 'Session expirée',
+    accessDenied: 'Accès refusé',
+    serverError: 'Erreur serveur',
   },
   login: {
     urlError: 'URL doit commencer par https://',
@@ -327,6 +333,10 @@ export default {
     move: 'Déplacer',
     noLabels: 'Aucun label. Créer le premier.',
     projectMembers: 'Membres du projet',
+    fileTypeError: 'Type de fichier non supporté',
+    downloadError: 'Téléchargement échoué',
+    audioError: 'Lecture impossible',
+    videoError: 'Chargement impossible',
   },
   onboarding: {
     skip: 'Passer',

@@ -1,6 +1,7 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, StatusBar, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
+import { showToast } from '@/stores/toast';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -70,7 +71,7 @@ export default function ProjectsScreen() {
       ]);
       setProjects(Array.isArray(projs) ? projs : []);
       setOrgs(Array.isArray(orgList) ? orgList : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api, setOrgs]);
 

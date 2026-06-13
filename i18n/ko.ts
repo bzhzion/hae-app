@@ -288,6 +288,12 @@ export default {
     loadingMsg: '로딩 중',
     create: '만들기',
     download: '다운로드',
+    loadError: '불러오기 실패',
+    saveError: '저장 실패',
+    networkError: '네트워크 오류',
+    sessionExpired: '세션 만료',
+    accessDenied: '접근 거부',
+    serverError: '서버 오류',
   },
   login: {
     urlError: 'URL은 https://로 시작해야 합니다',
@@ -327,6 +333,10 @@ export default {
     move: '이동',
     noLabels: '레이블 없음. 첫 번째를 만드세요.',
     projectMembers: '프로젝트 멤버',
+    fileTypeError: '지원하지 않는 파일 형식',
+    downloadError: '다운로드 실패',
+    audioError: '재생 실패',
+    videoError: '열기 실패',
   },
   onboarding: {
     skip: '건너뛰기',

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
+import { showToast } from '@/stores/toast';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation, Animated, PanResponder } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -249,7 +250,7 @@ export default function NotificationsScreen() {
       setNotifs(list);
       setArchived(Array.isArray(arch) ? arch : []);
       setUnreadCount(list.filter(n => !n.is_read).length);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api, setUnreadCount]);
 
@@ -273,7 +274,7 @@ export default function NotificationsScreen() {
         setPendingCard(n.card_id);
         router.navigate('/(app)/(tabs)/tasks');
       }
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   }, [api, decrement, setPendingCard, setCurrentProject, router]);
 
   const markAllRead = useCallback(async () => {
@@ -281,7 +282,7 @@ export default function NotificationsScreen() {
       await api('POST', '/api/notifications/read-all');
       setNotifs(prev => prev.map(x => ({ ...x, is_read: 1 })));
       setUnreadCount(0);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   }, [api, setUnreadCount]);
 
   const createCard = useCallback((notif: Notif) => {
@@ -300,7 +301,7 @@ export default function NotificationsScreen() {
         return updated;
       });
       if (notif) setArchived(prev => [{ ...notif, is_read: 1 }, ...prev]);
-    } catch {}
+    } catch { showToast(t('common.networkError')); }
   }, [api, setUnreadCount, notifs]);
 
   const acceptInvite = useCallback(async (notif: Notif) => {
@@ -345,7 +346,7 @@ export default function NotificationsScreen() {
             setArchived(prev => [...notifs.map(x => ({ ...x, is_read: 1 })), ...prev]);
             setNotifs([]);
             setUnreadCount(0);
-          } catch {}
+          } catch { showToast(t('common.networkError')); }
         }},
       ]
     );

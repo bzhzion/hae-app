@@ -288,6 +288,12 @@ export default {
     loadingMsg: 'Loading',
     create: 'Create',
     download: 'Download',
+    loadError: 'Load failed',
+    saveError: 'Save failed',
+    networkError: 'Network error',
+    sessionExpired: 'Session expired',
+    accessDenied: 'Access denied',
+    serverError: 'Server error',
   },
   login: {
     urlError: 'URL must start with https://',
@@ -327,6 +333,10 @@ export default {
     move: 'Move',
     noLabels: 'No labels. Create the first one.',
     projectMembers: 'Project members',
+    fileTypeError: 'Unsupported file type',
+    downloadError: 'Download failed',
+    audioError: 'Playback failed',
+    videoError: 'Failed to open',
   },
   onboarding: {
     skip: 'Skip',

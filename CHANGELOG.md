@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.38] - 2026-06-13
+
+### Fixed
+- Audit complet des `catch {}` silencieux : ~30 endroits corrigés dans 14 fichiers
+- Nouvelles clés i18n `common.loadError/saveError/networkError/sessionExpired/accessDenied/serverError` + `cards.fileTypeError/downloadError/audioError/videoError`
+- `Alert.alert('Erreur', ...)` hardcodés remplacés par `showToast(t(...))`
+- `lib/api.ts` : strings FR hardcodées remplacées par `i18n.t()`
+- Fichiers couverts : CardDetailSheet, AiConfigSection, tasks, notifications, projects, organisations, calendar, search, archives, admin, project-settings, organisation/[id], stores/prefs, lib/api
+
 ## [1.3.37] - 2026-06-13
 
 ### Fixed

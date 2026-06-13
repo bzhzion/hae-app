@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
+import { showToast } from '@/stores/toast';
 import { useOrgStore } from '@/stores/org';
 
 const BRAND = '#A00000';
@@ -33,7 +34,7 @@ export default function OrganisationsScreen() {
     try {
       const data = await api('GET', '/api/organisations');
       setOrgs(Array.isArray(data) ? data : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoading(false); }
   }, [api, setOrgs]);
 

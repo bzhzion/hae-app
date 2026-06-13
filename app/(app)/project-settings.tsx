@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { showToast } from '@/stores/toast';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -15,6 +16,9 @@ const BG = '#FAFAF8';
 
 interface Member { id: string; name: string; email: string; avatar_url?: string; role: string; }
 interface OrgMember { id: string; name: string; email: string; role: string; }
+interface Label { id: string; name: string; color: string; }
+
+const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
 
 const ROLE_COLORS: Record<string, string> = { owner: '#A00000', admin: '#A00000', editor: '#2563eb', viewer: '#6b7280' };
 
@@ -28,6 +32,13 @@ export default function ProjectSettingsScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [editingLabel, setEditingLabel] = useState<Label | null>(null);
+  const [labelNameDraft, setLabelNameDraft] = useState('');
+  const [labelColorDraft, setLabelColorDraft] = useState('#6366f1');
+  const [labelSaving, setLabelSaving] = useState(false);
+  const [showAddLabel, setShowAddLabel] = useState(false);
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteUserId, setInviteUserId] = useState<string | null>(null);
@@ -44,8 +55,16 @@ export default function ProjectSettingsScreen() {
     try {
       const proj = await api('GET', `/api/projects/${currentProjectId}`);
       setMembers(Array.isArray(proj?.members) ? proj.members : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
     finally { setLoadingMembers(false); }
+  }, [currentProjectId, api]);
+
+  const loadLabels = useCallback(async () => {
+    if (!currentProjectId) return;
+    try {
+      const data = await api('GET', `/api/projects/${currentProjectId}/labels`);
+      setLabels(Array.isArray(data) ? data : []);
+    } catch { showToast(t('common.loadError')); }
   }, [currentProjectId, api]);
 
   const loadOrgMembers = useCallback(async () => {
@@ -53,13 +72,14 @@ export default function ProjectSettingsScreen() {
     try {
       const org = await api('GET', `/api/organisations/${currentProjectOwnerId}`);
       setOrgMembers(Array.isArray(org?.members) ? org.members : []);
-    } catch {}
+    } catch { showToast(t('common.loadError')); }
   }, [currentProjectOwnerType, currentProjectOwnerId, api]);
 
   useFocusEffect(useCallback(() => {
     loadMembers();
     loadOrgMembers();
-  }, [loadMembers, loadOrgMembers]));
+    loadLabels();
+  }, [loadMembers, loadOrgMembers, loadLabels]));
 
   const invitableCandidates = orgMembers.filter(om => !members.some(m => m.id === om.id));
 
@@ -105,6 +125,52 @@ export default function ProjectSettingsScreen() {
       }},
     ]);
   };
+
+  const openEditLabel = (label: Label) => {
+    setEditingLabel(label);
+    setLabelNameDraft(label.name);
+    setLabelColorDraft(label.color);
+  };
+
+  const openAddLabel = () => {
+    setEditingLabel(null);
+    setLabelNameDraft('');
+    setLabelColorDraft(PRESET_COLORS[0]);
+    setShowAddLabel(true);
+  };
+
+  const saveLabel = async () => {
+    const name = labelNameDraft.trim();
+    if (!name) return;
+    setLabelSaving(true);
+    try {
+      if (editingLabel) {
+        await api('PATCH', `/api/labels/${editingLabel.id}`, { name, color: labelColorDraft });
+        setEditingLabel(null);
+      } else {
+        await api('POST', `/api/projects/${currentProjectId}/labels`, { name, color: labelColorDraft });
+        setShowAddLabel(false);
+      }
+      await loadLabels();
+    } catch (e: any) { Alert.alert(t('common.error'), e.message); }
+    finally { setLabelSaving(false); }
+  };
+
+  const deleteLabel = (label: Label) => {
+    Alert.alert(label.name, t('common.confirmDelete', { name: label.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: async () => {
+        try {
+          await api('DELETE', `/api/labels/${label.id}`);
+          setEditingLabel(null);
+          await loadLabels();
+        } catch (e: any) { Alert.alert(t('common.error'), e.message); }
+      }},
+    ]);
+  };
+
+  const isLabelModalOpen = !!editingLabel || showAddLabel;
+  const closeLabelModal = () => { setEditingLabel(null); setShowAddLabel(false); };
 
   return (
     <View style={s.container}>
@@ -161,6 +227,32 @@ export default function ProjectSettingsScreen() {
             }
 
             <View style={s.divider} />
+
+            {/* Labels */}
+            <View style={s.sectionHead}>
+              <Text style={s.sectionLabel}>{t('projectSettings.labels').toUpperCase()}</Text>
+              <TouchableOpacity onPress={openAddLabel} accessibilityRole="button">
+                <Text style={s.sectionAction}>+ {t('common.add')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={s.labelsWrap}>
+              {labels.map(l => (
+                <TouchableOpacity
+                  key={l.id}
+                  style={[s.labelPill, { backgroundColor: l.color + '22', borderColor: l.color + '66' }]}
+                  onPress={() => openEditLabel(l)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit label ${l.name}`}
+                >
+                  <View style={[s.labelDot, { backgroundColor: l.color }]} />
+                  <Text style={[s.labelPillText, { color: l.color }]}>{l.name}</Text>
+                  <Feather name="edit-2" size={11} color={l.color + 'AA'} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              ))}
+              {labels.length === 0 && <Text style={s.emptyLabels}>{t('cards.noLabels')}</Text>}
+            </View>
+
+            <View style={s.divider} />
             <AiConfigSection
               api={api}
               configPath={`/api/projects/${currentProjectId}/ai-config`}
@@ -179,6 +271,47 @@ export default function ProjectSettingsScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Label edit / add modal */}
+      <Modal visible={isLabelModalOpen} transparent animationType="slide" onRequestClose={closeLabelModal}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeLabelModal} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
+              <Text style={s.sheetTitle}>{(editingLabel ? t('projectSettings.editLabel') : t('projectSettings.newLabel')).toUpperCase()}</Text>
+              <Text style={[s.sectionLabel, { marginBottom: 6 }]}>{t('common.nameLabel')}</Text>
+              <TextInput
+                style={s.sheetInput}
+                value={labelNameDraft}
+                onChangeText={setLabelNameDraft}
+                placeholder={t('cards.labelName')}
+                placeholderTextColor="#A0A098"
+                autoFocus
+                maxLength={50}
+                accessibilityLabel="Label name"
+              />
+              <Text style={[s.sectionLabel, { marginTop: 16, marginBottom: 8 }]}>{t('projectSettings.color').toUpperCase()}</Text>
+              <View style={s.colorRow}>
+                {PRESET_COLORS.map(c => (
+                  <TouchableOpacity key={c} style={[s.colorDot, { backgroundColor: c }, labelColorDraft === c && s.colorDotSel]} onPress={() => setLabelColorDraft(c)} accessibilityRole="radio" accessibilityState={{ checked: labelColorDraft === c }} accessibilityLabel={c} />
+                ))}
+              </View>
+              <View style={[s.labelPreview, { backgroundColor: labelColorDraft + '22', borderColor: labelColorDraft + '66' }]}>
+                <View style={[s.labelDot, { backgroundColor: labelColorDraft }]} />
+                <Text style={[s.labelPillText, { color: labelColorDraft }]}>{labelNameDraft || t('cards.labelName')}</Text>
+              </View>
+              <TouchableOpacity style={s.saveBtn} onPress={saveLabel} disabled={labelSaving || !labelNameDraft.trim()}>
+                {labelSaving ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.save')}</Text>}
+              </TouchableOpacity>
+              {editingLabel && (
+                <TouchableOpacity style={s.deleteBtn} onPress={() => deleteLabel(editingLabel)}>
+                  <Text style={s.deleteBtnText}>{t('common.delete')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <Modal visible={showInvite} transparent animationType="slide" onRequestClose={() => setShowInvite(false)}>
         <View style={{ flex: 1 }}>
@@ -290,4 +423,15 @@ const s = StyleSheet.create({
   candidateAvatarText:{ fontSize: 11, fontWeight: '700', color: BRAND },
   candidateName:      { fontSize: 14, fontWeight: '600', color: '#1A1A1A' },
   candidateEmail:     { fontSize: 11, color: '#6B6B63' },
+  labelsWrap:         { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  labelPill:          { flexDirection: 'row', alignItems: 'center', borderRadius: 20, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5, gap: 4 },
+  labelDot:           { width: 8, height: 8, borderRadius: 4 },
+  labelPillText:      { fontSize: 13, fontWeight: '600' },
+  emptyLabels:        { fontSize: 13, color: '#A0A098', fontStyle: 'italic' },
+  colorRow:           { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  colorDot:           { width: 28, height: 28, borderRadius: 14 },
+  colorDotSel:        { borderWidth: 3, borderColor: '#1A1A1A' },
+  labelPreview:       { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 },
+  deleteBtn:          { borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1.5, borderColor: '#ef4444' },
+  deleteBtnText:      { color: '#ef4444', fontSize: 15, fontWeight: '700' },
 });
