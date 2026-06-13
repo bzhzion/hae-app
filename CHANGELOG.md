@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.30] - 2026-06-13
+
+### Fixed
+- Fusion section `card` (singulier) dans `cards` (pluriel) dans fr.ts/en.ts/ko.ts — conflit de clés qui causait `cards.moveToColumn` affiché en brut
+- Noms de colonnes GTD : `i18n.exists()` remplacé par `t(..., { defaultValue: '' })` plus fiable
+
 ## [1.3.29] - 2026-06-13
 
 ### Fixed

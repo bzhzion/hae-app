@@ -1303,8 +1303,9 @@ export default function CardDetailSheet({
           {projectColumns
             .filter(col => col.id !== (detail?.column_id ?? card?.column_id) && col.type !== 'gtd_trash')
             .map(col => {
-              const typeKey = col.type?.replace(/^gtd_/, '') as string;
-              const label = typeKey && i18n.exists(`columns.${typeKey}`) ? t(`columns.${typeKey}`) : col.name;
+              const typeKey = col.type?.replace(/^gtd_/, '') ?? '';
+              const translated = typeKey ? t(`columns.${typeKey}`, { defaultValue: '' }) : '';
+              const label = translated || col.name;
               return (
                 <TouchableOpacity key={col.id} style={s.sheetRow} onPress={() => moveCard(col.id)}>
                   <Text style={s.sheetRowText}>{label}</Text>
