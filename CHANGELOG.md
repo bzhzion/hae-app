@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.25] - 2026-06-13
+
+### Fixed
+- Annonces affichées sur l'écran des tâches (modal overlay) au lieu du splash screen — s'affiche bien après connexion
+
+### Changed
+- `stores/announcements` : ajout de `pending` + `setPending` + `clearPending` pour persister les annonces entre la navigation
+- `app/index.tsx` : simplifié, ne gère plus la phase 'announcing'
+
 ## [1.3.24] - 2026-06-13
 
 ### Fixed

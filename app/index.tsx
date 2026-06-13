@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, StyleSheet, Animated, Modal, TouchableOpacity, Linking, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotifStore } from '@/stores/notif';
 import { usePrefsStore } from '@/stores/prefs';
 import { useOnboardingStore } from '@/stores/onboarding';
-import { useAnnouncementsStore, type Announcement } from '@/stores/announcements';
+import { useAnnouncementsStore } from '@/stores/announcements';
 import { saveToAppGroup } from '@/modules/hae-app-group';
 import { saveLanguage } from '@/i18n';
 import i18n from '@/i18n';
@@ -41,54 +41,8 @@ function LoadingDots() {
   );
 }
 
-function AnnouncementModal({ announcements, onDone }: { announcements: Announcement[]; onDone: () => void }) {
-  const [idx, setIdx] = useState(0);
-  const markSeen = useAnnouncementsStore(s => s.markSeen);
 
-  const current = announcements[idx];
-  if (!current) { onDone(); return null; }
-
-  const typeColor = current.type === 'warning' ? '#D97706' : current.type === 'update' ? BRAND : '#2563EB';
-  const typeLabel = current.type === 'warning' ? 'Attention' : current.type === 'update' ? 'Mise à jour' : 'Info';
-
-  const dismiss = () => {
-    markSeen(current.id);
-    if (idx + 1 < announcements.length) setIdx(idx + 1);
-    else onDone();
-  };
-
-  return (
-    <Modal visible transparent animationType="fade">
-      <View style={ls.modalOverlay}>
-        <View style={ls.modalBox}>
-          <View style={[ls.modalType, { backgroundColor: typeColor }]}>
-            <Text style={ls.modalTypeText}>{typeLabel}</Text>
-            <Text style={ls.modalDate}>{current.date}</Text>
-          </View>
-          <ScrollView style={ls.modalBody}>
-            <Text style={ls.modalTitle}>{current.title}</Text>
-            <Text style={ls.modalBodyText}>{current.body}</Text>
-          </ScrollView>
-          {current.cta_label && current.cta_url && (
-            <TouchableOpacity style={ls.modalCta} onPress={() => {
-              const u = current.cta_url!;
-              if (u.startsWith('https://') || u.startsWith('http://')) Linking.openURL(u);
-            }}>
-              <Text style={ls.modalCtaText}>{current.cta_label}</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={ls.modalDismiss} onPress={dismiss}>
-            <Text style={ls.modalDismissText}>
-              {idx + 1 < announcements.length ? `Suivant (${idx + 1}/${announcements.length})` : 'Fermer'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-type Phase = 'boot' | 'loading' | 'announcing';
+type Phase = 'boot' | 'loading';
 
 export default function Index() {
   const router = useRouter();
@@ -98,13 +52,12 @@ export default function Index() {
   const [announcementsHydrated, setAnnouncementsHydrated] = useState(false);
 
   const [phase, setPhase] = useState<Phase>('boot');
-  const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([]);
 
   const { token, refreshToken, serverUrl, setToken, setRefreshToken, setUser, logout } = useAuthStore();
   const setUnreadCount = useNotifStore(s => s.setUnreadCount);
   const fetchPrefs = usePrefsStore(s => s.fetch);
   const onboardingDone = useOnboardingStore(s => s.done);
-  const seenIds = useAnnouncementsStore(s => s.seenIds);
+  const { seenIds, setPending } = useAnnouncementsStore();
 
   // Hydration: auth store
   useEffect(() => {
@@ -207,38 +160,15 @@ export default function Index() {
       // Announcements (public, ne bloque pas si erreur)
       fetch(ANNOUNCEMENTS_URL, { signal: AbortSignal.timeout?.(4000) })
         .then(r => r.ok ? r.json() : { announcements: [] })
-        .then((data: { announcements: Announcement[] }) => {
-          const unseen = (data.announcements ?? []).filter(a => !seenIds.includes(a.id));
-          if (unseen.length > 0) setPendingAnnouncements(unseen);
+        .then((data: { announcements: any[] }) => {
+          const unseen = (data.announcements ?? []).filter((a: any) => !seenIds.includes(a.id));
+          if (unseen.length > 0) setPending(unseen);
         })
         .catch(() => {}),
     ]);
 
-    if (pendingAnnouncements.length > 0) {
-      setPhase('announcing');
-    } else {
-      router.replace('/(app)/(tabs)/tasks');
-    }
+    router.replace('/(app)/(tabs)/tasks');
   };
-
-  // React to pendingAnnouncements after bootstrap (state update may be async)
-  useEffect(() => {
-    if (phase === 'loading' && pendingAnnouncements.length > 0) {
-      setPhase('announcing');
-    }
-  }, [pendingAnnouncements]);
-
-  if (phase === 'announcing' && pendingAnnouncements.length > 0) {
-    return (
-      <View style={ls.screen}>
-        <Image source={require('../assets/icon-transparent.png')} style={ls.logo} resizeMode="contain" />
-        <AnnouncementModal
-          announcements={pendingAnnouncements}
-          onDone={() => router.replace('/(app)/(tabs)/tasks')}
-        />
-      </View>
-    );
-  }
 
   return (
     <View style={ls.screen}>
@@ -254,22 +184,9 @@ export default function Index() {
 }
 
 const ls = StyleSheet.create({
-  screen:     { flex: 1, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  logo:       { width: 96, height: 96, marginBottom: 32 },
-  label:      { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginBottom: 16, letterSpacing: 0.3 },
-  dots:       { flexDirection: 'row', gap: 8 },
-  dot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
-
-  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', padding: 16 },
-  modalBox:       { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', maxHeight: '75%' },
-  modalType:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-  modalTypeText:  { fontSize: 12, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-  modalDate:      { fontSize: 11, color: 'rgba(255,255,255,0.8)' },
-  modalBody:      { padding: 20, maxHeight: 260 },
-  modalTitle:     { fontSize: 20, fontWeight: '800', color: '#1A1A1A', marginBottom: 10, letterSpacing: -0.3 },
-  modalBodyText:  { fontSize: 14, color: '#4A4A44', lineHeight: 21 },
-  modalCta:       { marginHorizontal: 16, marginBottom: 8, borderRadius: 10, backgroundColor: '#F5F5F0', paddingVertical: 13, alignItems: 'center' },
-  modalCtaText:   { fontSize: 14, fontWeight: '600', color: '#1A1A1A' },
-  modalDismiss:   { paddingVertical: 16, alignItems: 'center' },
-  modalDismissText:{ fontSize: 15, fontWeight: '700', color: BRAND },
+  screen: { flex: 1, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  logo:   { width: 96, height: 96, marginBottom: 32 },
+  label:  { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginBottom: 16, letterSpacing: 0.3 },
+  dots:   { flexDirection: 'row', gap: 8 },
+  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
 });

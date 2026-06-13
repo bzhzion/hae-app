@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useStt } from '@/hooks/useStt';
+import { useAnnouncementsStore, type Announcement } from '@/stores/announcements';
 import { useAiConfig } from '@/hooks/useAiConfig';
 import { showToast } from '@/stores/toast';
 import { makeApi } from '@/lib/api';
@@ -103,6 +104,9 @@ export default function TasksScreen() {
   };
   const [page, setPage] = useState(0);
   const [columns, setColumns] = useState<Column[]>([]);
+  const { pending: pendingAnnouncements, markSeen, clearPending } = useAnnouncementsStore();
+  const [announcementIdx, setAnnouncementIdx] = useState(0);
+  const showAnnouncement = pendingAnnouncements.length > 0 && announcementIdx < pendingAnnouncements.length;
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [addingInColumn, setAddingInColumn] = useState<string | null>(null);
@@ -348,9 +352,53 @@ Respond with only valid JSON, no explanation.`;
     if (i !== page) { setPage(i); centerTab(i); }
   };
 
+  const dismissAnnouncement = () => {
+    const current = pendingAnnouncements[announcementIdx];
+    if (current) markSeen(current.id);
+    if (announcementIdx + 1 < pendingAnnouncements.length) {
+      setAnnouncementIdx(i => i + 1);
+    } else {
+      clearPending();
+      setAnnouncementIdx(0);
+    }
+  };
+
   return (
     <View style={s.container}>
       <StatusBar barStyle="dark-content" />
+      {showAnnouncement && (() => {
+        const ann: Announcement = pendingAnnouncements[announcementIdx];
+        const typeColor = ann.type === 'warning' ? '#D97706' : ann.type === 'update' ? BRAND : '#2563EB';
+        const typeLabel = ann.type === 'warning' ? 'Attention' : ann.type === 'update' ? 'Mise à jour' : 'Info';
+        return (
+          <Modal visible transparent animationType="fade">
+            <View style={s.annOverlay}>
+              <View style={s.annBox}>
+                <View style={[s.annType, { backgroundColor: typeColor }]}>
+                  <Text style={s.annTypeText}>{typeLabel}</Text>
+                  <Text style={s.annDate}>{ann.date}</Text>
+                </View>
+                <ScrollView style={s.annBody}>
+                  <Text style={s.annTitle}>{ann.title}</Text>
+                  <Text style={s.annBodyText}>{ann.body}</Text>
+                </ScrollView>
+                {ann.cta_label && ann.cta_url && (
+                  <TouchableOpacity style={s.annCta} onPress={() => { if (ann.cta_url) Linking.openURL(ann.cta_url); }}>
+                    <Text style={s.annCtaText}>{ann.cta_label}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={s.annDismiss} onPress={dismissAnnouncement}>
+                  <Text style={s.annDismissText}>
+                    {announcementIdx + 1 < pendingAnnouncements.length
+                      ? `Suivant (${announcementIdx + 1}/${pendingAnnouncements.length})`
+                      : 'Fermer'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <View style={s.headerTop}>
           <Image source={require('@/assets/icon.png')} style={s.logo} accessible={false} />
@@ -640,6 +688,19 @@ const s = StyleSheet.create({
   micBtn:         { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   micBtnActive:   { backgroundColor: BRAND },
   micBtnDisabled: { borderColor: '#C8C8C0', opacity: 0.4 },
+
+  annOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', padding: 16 },
+  annBox:       { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', maxHeight: '75%' },
+  annType:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  annTypeText:  { fontSize: 12, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
+  annDate:      { fontSize: 11, color: 'rgba(255,255,255,0.8)' },
+  annBody:      { padding: 20, maxHeight: 260 },
+  annTitle:     { fontSize: 20, fontWeight: '800', color: '#1A1A1A', marginBottom: 10, letterSpacing: -0.3 },
+  annBodyText:  { fontSize: 14, color: '#4A4A44', lineHeight: 21 },
+  annCta:       { marginHorizontal: 16, marginBottom: 8, borderRadius: 10, backgroundColor: '#F5F5F0', paddingVertical: 13, alignItems: 'center' },
+  annCtaText:   { fontSize: 14, fontWeight: '600', color: '#1A1A1A' },
+  annDismiss:   { paddingVertical: 16, alignItems: 'center' },
+  annDismissText: { fontSize: 15, fontWeight: '700', color: BRAND },
   cancelBtn:      { width: 22, height: 22, borderRadius: 11, backgroundColor: '#E8E8E4', alignItems: 'center', justifyContent: 'center' },
   tabs:           { flexDirection: 'row', paddingHorizontal: 20 },
   tab:            { width: TAB_W, paddingBottom: 10, alignItems: 'center' },
