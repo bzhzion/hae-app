@@ -191,16 +191,6 @@ export default function NotificationsScreen() {
       <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.title}>{t('notifications.title')}</Text>
         <View style={s.headerActions}>
-          {!showArchived && unread > 0 && (
-            <TouchableOpacity onPress={markAllRead}>
-              <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
-            </TouchableOpacity>
-          )}
-          {!showArchived && notifs.length > 0 && (
-            <TouchableOpacity onPress={dismissAll} style={s.archiveBtn}>
-              <Feather name="archive" size={14} color="#8A8A80" />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity onPress={() => setShowArchived(v => !v)} style={s.archiveToggle}>
             <Text style={[s.archiveToggleText, showArchived && { color: BRAND }]}>
               {showArchived ? t('notifications.inbox', { defaultValue: 'Inbox' }) : t('notifications.archives', { defaultValue: 'Archives' })}
@@ -209,6 +199,21 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      {(!showArchived && (unread > 0 || notifs.length > 0)) && (
+        <View style={s.subHeader}>
+          {unread > 0 && (
+            <TouchableOpacity onPress={markAllRead}>
+              <Text style={s.markAll}>{t('notifications.markAllRead')}</Text>
+            </TouchableOpacity>
+          )}
+          {notifs.length > 0 && (
+            <TouchableOpacity onPress={dismissAll} style={s.archiveBtn}>
+              <Feather name="archive" size={14} color="#8A8A80" />
+              <Text style={s.archiveBtnText}>Tout archiver</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {loading && !refreshing ? (
         <View style={s.center}><ActivityIndicator color={BRAND} /></View>
@@ -240,11 +245,13 @@ export default function NotificationsScreen() {
 
 const s = StyleSheet.create({
   container:        { flex: 1, backgroundColor: BG },
-  header:           { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderColor: '#EBEBEB' },
+  header:           { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 0, paddingBottom: 10, borderColor: '#EBEBEB' },
   title:            { fontSize: 28, fontWeight: '800', color: '#1A1A1A', letterSpacing: -1, flex: 1 },
   headerActions:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  subHeader:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 8, borderBottomWidth: 1, borderColor: '#EBEBEB' },
   markAll:          { fontSize: 13, fontWeight: '700', color: BRAND },
-  archiveBtn:       { padding: 4 },
+  archiveBtn:       { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  archiveBtnText:   { fontSize: 13, fontWeight: '500', color: '#8A8A80' },
   archiveToggle:    { paddingVertical: 4, paddingHorizontal: 6 },
   archiveToggleText:{ fontSize: 13, fontWeight: '600', color: '#8A8A80' },
   center:           { flex: 1, alignItems: 'center', justifyContent: 'center' },
