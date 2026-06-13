@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.50] - 2026-06-14
+
+### Fixed
+- CardDetailSheet : membres en petits ronds 30px côte à côte (gap 6, flexWrap) sans chevauchement
+- CardDetailSheet : mic commentaire centré verticalement dans la row (alignItems center)
+- CardDetailSheet : retrait marginLeft auto résiduel sur bouton mic
+
 ## [1.3.49] - 2026-06-14
 
 ### Changed
