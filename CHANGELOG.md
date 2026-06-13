@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.40] - 2026-06-13
+
+### Added
+- `Dockerfile.web` : build multi-stage (Node 20 → nginx alpine), `npx expo export --platform web`
+- `nginx.web.conf` : SPA routing (`try_files → index.html`), gzip, cache immutable pour assets
+- `.github/workflows/deploy-web.yml` : build + push image `ghcr.io/bzhzion/hae-web:latest` sur chaque push main
+
 ## [1.3.39] - 2026-06-13
 
 ### Added
