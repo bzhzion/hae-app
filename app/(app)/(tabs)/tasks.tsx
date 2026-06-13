@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView, Linking } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView, Linking, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useStt } from '@/hooks/useStt';
 import { useAnnouncementsStore, type Announcement } from '@/stores/announcements';
@@ -14,8 +14,6 @@ import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
 import CardDetailSheet from '@/components/CardDetailSheet';
 import { FlatList } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 const GTD_ORDER = ['gtd_inbox','gtd_someday','gtd_next','gtd_urgent','gtd_waiting','gtd_done'];
 const GTD_EN_NAMES: Record<string, string[]> = {
@@ -85,6 +83,7 @@ interface Card { id: string; title: string; description?: string; due_date?: num
 interface Column { id: string; name: string; type: string; cards: Card[]; }
 
 export default function TasksScreen() {
+  const { width } = useWindowDimensions();
   const { t } = useTranslation();
   const GTD_LABELS: Record<string, string> = {
     gtd_inbox:   t('tasks.inbox'),
@@ -488,7 +487,7 @@ Respond with only valid JSON, no explanation.`;
           {pages.map((col) => {
             const cards = col.cards;
             return (
-              <View key={col.id} style={s.page}>
+              <View key={col.id} style={[s.page, { width }]}>
                 {cards.length === 0 ? (
                   <ScrollView
                     contentContainerStyle={s.emptyScrollContent}
@@ -774,7 +773,7 @@ const s = StyleSheet.create({
   tabDot:         { width: 3, height: 3, borderRadius: 2, backgroundColor: 'transparent', marginTop: 5 },
   tabDotActive:   { backgroundColor: BRAND },
   pager:          { flex: 1 },
-  page:           { width, flex: 1 },
+  page:           { flex: 1 },
   cardList:       { padding: 16, paddingTop: 12 },
   card:           {
     backgroundColor: '#fff',

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.45] - 2026-06-14
+
+### Fixed
+- Web compat : FileSystem/Sharing remplacés par fetch+blob+`<a download>` pour téléchargement pièces jointes
+- Web compat : audio/vidéo attachments utilisent blob URL sur web, FileSystem en cache sur natif
+- Web compat : expo-haptics wrappé avec `Platform.OS !== 'web'` (4 appels dans notifications)
+- Web compat : `Dimensions.get('window')` remplacé par `useWindowDimensions()` dans tasks.tsx (réactif au resize)
+
 ## [1.3.44] - 2026-06-14
 
 ### Fixed

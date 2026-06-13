@@ -1,9 +1,16 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
 import { showToast } from '@/stores/toast';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation, Animated, PanResponder } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation, Animated, PanResponder, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+const hapticImpact = (style: Haptics.ImpactFeedbackStyle) => {
+  if (Platform.OS !== 'web') Haptics.impactAsync(style);
+};
+const hapticNotification = (type: Haptics.NotificationFeedbackType) => {
+  if (Platform.OS !== 'web') Haptics.notificationAsync(type);
+};
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -109,7 +116,7 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
     onPanResponderRelease: (_, gs) => {
       const moved = Math.abs(gs.dx) * RESISTANCE;
       if (gs.dx < 0 && (moved >= TRIGGER || gs.vx < -0.4)) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        hapticNotification(Haptics.NotificationFeedbackType.Success);
         Animated.parallel([
           Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
           Animated.timing(translateX, { toValue: -400, duration: 220, useNativeDriver: true }),
@@ -117,7 +124,7 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
         return;
       }
       if (gs.dx > 0 && (moved >= TRIGGER || gs.vx > 0.4)) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        hapticImpact(Haptics.ImpactFeedbackStyle.Medium);
         onCreateCardRef.current(item);
         Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 8 }).start();
         return;
@@ -180,7 +187,7 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
             style={[s.item, !item.is_read && s.itemUnread]}
             accessibilityRole="button"
             onPress={() => !showArchived && onMarkRead(item)}
-            onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onCreateCard(item); }}
+            onLongPress={() => { hapticImpact(Haptics.ImpactFeedbackStyle.Heavy); onCreateCard(item); }}
             delayLongPress={400}
             activeOpacity={0.7}
           >
@@ -307,7 +314,7 @@ export default function NotificationsScreen() {
   const acceptInvite = useCallback(async (notif: Notif) => {
     if (!notif.url) return;
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticNotification(Haptics.NotificationFeedbackType.Success);
       const res = await api('POST', `/api/organisations/invitations/${notif.url}/accept`);
       setNotifs(prev => {
         const updated = prev.filter(x => x.id !== notif.id);

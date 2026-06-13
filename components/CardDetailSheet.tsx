@@ -8,6 +8,12 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+const fetchBlobUrl = async (url: string, token: string): Promise<string> => {
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) throw new Error('Download failed');
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
+};
 import { Ionicons } from '@expo/vector-icons';
 import { useStt } from '../hooks/useStt';
 import { useAiConfig } from '../hooks/useAiConfig';
@@ -587,16 +593,25 @@ export default function CardDetailSheet({
 
   const downloadAttachment = async (att: Attachment) => {
     const url = `${serverUrl}/api/attachments/${att.id}/download`;
-    const safeName = att.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '__');
-    const localUri = `${FileSystem.cacheDirectory}${safeName}`;
     try {
-      const dl = await FileSystem.downloadAsync(url, localUri, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(dl.uri, { dialogTitle: att.filename });
+      if (Platform.OS === 'web') {
+        const blobUrl = await fetchBlobUrl(url, token!);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = att.filename;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
       } else {
-        Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
+        const safeName = att.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '__');
+        const localUri = `${FileSystem.cacheDirectory}${safeName}`;
+        const dl = await FileSystem.downloadAsync(url, localUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(dl.uri, { dialogTitle: att.filename });
+        } else {
+          Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
+        }
       }
     } catch {
       showToast(t('cards.downloadError'));
@@ -629,15 +644,21 @@ export default function CardDetailSheet({
     stopAudio();
     setLoadingAttId(att.id);
     try {
-      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
-      const info = await FileSystem.getInfoAsync(localUri);
-      if (!info.exists) {
-        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      let playUri: string;
+      if (Platform.OS === 'web') {
+        playUri = await fetchBlobUrl(`${serverUrl}/api/attachments/${att.id}/download`, token!);
+      } else {
+        const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+        const info = await FileSystem.getInfoAsync(localUri);
+        if (!info.exists) {
+          await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+        await setAudioModeAsync({ playsInSilentMode: true });
+        playUri = localUri;
       }
-      await setAudioModeAsync({ playsInSilentMode: true });
-      const player = createAudioPlayer({ uri: localUri });
+      const player = createAudioPlayer({ uri: playUri });
       soundRef.current = player;
       player.play();
       setPlayingAttId(att.id);
@@ -655,14 +676,20 @@ export default function CardDetailSheet({
     await stopAudio();
     setLoadingAttId(att.id);
     try {
-      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
-      const info = await FileSystem.getInfoAsync(localUri);
-      if (!info.exists) {
-        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      let playUri: string;
+      if (Platform.OS === 'web') {
+        playUri = await fetchBlobUrl(`${serverUrl}/api/attachments/${att.id}/download`, token!);
+      } else {
+        const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+        const info = await FileSystem.getInfoAsync(localUri);
+        if (!info.exists) {
+          await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+        playUri = localUri;
       }
-      setVideoViewerAtt({ ...att, filename: localUri });
+      setVideoViewerAtt({ ...att, filename: playUri });
     } catch { showToast(t('cards.videoError')); }
     finally { setLoadingAttId(null); }
   };
