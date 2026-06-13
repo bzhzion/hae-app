@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.24] - 2026-06-13
+
+### Fixed
+- Bouton "Revoir l'onboarding" navigue immédiatement au lieu d'afficher un alert + redémarrage manuel
+
+### Added
+- Annonce "IA intégrée — dictée vocale améliorée" dans `public/announcements.json`
+
 ## [1.3.23] - 2026-06-13
 
 ### Added

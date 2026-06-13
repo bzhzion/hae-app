@@ -363,7 +363,7 @@ export default function ProfileScreen() {
             <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
             <TouchableOpacity style={[s.dangerRow, { borderBottomWidth: 1, borderColor: '#F0F0EC' }]} onPress={() => {
               resetOnboarding();
-              Alert.alert('Onboarding réinitialisé', 'L\'onboarding s\'affichera au prochain démarrage.');
+              router.replace('/onboarding');
             }}>
               <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>Revoir l'onboarding</Text>
               <Text style={s.dangerHint}>S'affichera au prochain démarrage de l'app.</Text>

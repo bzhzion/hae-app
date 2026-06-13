@@ -1,6 +1,15 @@
 {
   "announcements": [
     {
+      "id": "2026-06-13-ai-client-side",
+      "title": "IA intégrée — dictée vocale améliorée",
+      "body": "La dictée vocale crée maintenant une carte complète automatiquement : titre, description, date d'échéance, colonne GTD et labels suggérés par l'IA.\n\nLes boutons IA sont grisés si aucune clé n'est configurée. Configurez votre clé dans Profil → IA.",
+      "type": "update",
+      "date": "2026-06-13",
+      "cta_label": "Configurer l'IA",
+      "cta_url": null
+    },
+    {
       "id": "2026-06-13-v1-3",
       "title": "Hae v1.3 — Invitations, IA & Sécurité",
       "body": "Invitez vos collaborateurs par email, utilisez l'IA pour parser vos tâches, et bénéficiez d'un audit de sécurité complet.",
