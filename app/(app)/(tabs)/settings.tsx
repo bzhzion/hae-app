@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl ?? '', token ?? ''), [serverUrl, token]);
 
   const appVersion = Constants.expoConfig?.version ?? '?';
   const [advancedVisible, setAdvancedVisible] = useState(false);

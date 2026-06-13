@@ -44,7 +44,7 @@ export default function OrgScreen() {
   // Role picker
   const [roleTarget, setRoleTarget] = useState<OrgMember | null>(null);
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl ?? '', token ?? ''), [serverUrl, token]);
 
   const canManage = org?.my_role === 'owner' || org?.my_role === 'admin' || me?.role === 'admin';
   const isOwner = org?.my_role === 'owner' || me?.role === 'admin';

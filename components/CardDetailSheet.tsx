@@ -145,6 +145,7 @@ interface Card {
   id: string; title: string; description?: string;
   due_date?: number | null; stopwatch_total?: number;
   stopwatch_started_at?: number | null; column_id?: string; project_id?: string;
+  checklist_total?: number; checklist_done?: number;
 }
 interface Label { id: string; name: string; color: string; }
 interface Member { id: string; name: string; avatar_url?: string; }
@@ -207,6 +208,8 @@ export default function CardDetailSheet({
     if (text) setDescDraft(prev => prev ? prev + ' ' + text : text);
   }, [sttToggle]);
 
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+
   const improveDesc = useCallback(async () => {
     if (!descDraft.trim() || !detail) return;
     setImprovingDesc(true);
@@ -268,8 +271,6 @@ export default function CardDetailSheet({
   const [loadingAttId, setLoadingAttId] = useState<string | null>(null);
   const [playingAttId, setPlayingAttId] = useState<string | null>(null);
   const soundRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
-
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const startSwTick = useCallback((total: number, startedAt: number) => {
     clearInterval(swInterval.current!);

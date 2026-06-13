@@ -25,7 +25,7 @@ export default function AdminScreen() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl ?? '', token ?? ''), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);

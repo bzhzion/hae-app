@@ -27,7 +27,7 @@ export default function OrganisationsScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl ?? '', token ?? ''), [serverUrl, token]);
 
   const load = useCallback(async () => {
     setLoading(true);

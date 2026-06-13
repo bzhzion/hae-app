@@ -139,6 +139,30 @@ export default function TasksScreen() {
     setNewCardTitle('');
   };
 
+  const fetchProject = useCallback(async () => {
+    if (!currentProjectId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${serverUrl}/api/projects/${currentProjectId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) { logout(); router.replace('/(auth)/login'); return; }
+      const data = await res.json();
+      const cols: Column[] = data.columns ?? [];
+      const withCards = await Promise.all(
+        cols.map(async (col) => {
+          const r = await fetch(`${serverUrl}/api/columns/${col.id}/cards`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const cards = await r.json();
+          return { ...col, cards: Array.isArray(cards) ? cards : [] };
+        })
+      );
+      setColumns(withCards);
+    } catch { showToast(t('common.loadError')); }
+    finally { setLoading(false); }
+  }, [currentProjectId, serverUrl, token, logout, router]);
+
   const handleMicPress = useCallback(async () => {
     if (isParsing) return;
     micActiveRef.current = true;
@@ -221,30 +245,6 @@ Respond with only valid JSON, no explanation.`;
       setIsParsing(false);
     }
   }, [isParsing, sttToggle, currentProjectId, currentProjectOwnerType, currentProjectOwnerId, serverUrl, token, columns, fetchProject]);
-
-  const fetchProject = useCallback(async () => {
-    if (!currentProjectId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${serverUrl}/api/projects/${currentProjectId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) { logout(); router.replace('/(auth)/login'); return; }
-      const data = await res.json();
-      const cols: Column[] = data.columns ?? [];
-      const withCards = await Promise.all(
-        cols.map(async (col) => {
-          const r = await fetch(`${serverUrl}/api/columns/${col.id}/cards`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const cards = await r.json();
-          return { ...col, cards: Array.isArray(cards) ? cards : [] };
-        })
-      );
-      setColumns(withCards);
-    } catch { showToast(t('common.loadError')); }
-    finally { setLoading(false); }
-  }, [currentProjectId, serverUrl, token, logout, router]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

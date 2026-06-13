@@ -47,7 +47,7 @@ export default function ProjectSettingsScreen() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+  const api = useMemo(() => makeApi(serverUrl ?? '', token ?? ''), [serverUrl, token]);
 
   const loadMembers = useCallback(async () => {
     if (!currentProjectId) return;
