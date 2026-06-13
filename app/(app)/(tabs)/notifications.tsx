@@ -218,7 +218,6 @@ export default function NotificationsScreen() {
           <TouchableOpacity onPress={() => setShowArchived(v => !v)} style={s.archiveToggle}>
             <Text style={[s.archiveToggleText, showArchived && { color: BRAND }]}>
               {showArchived ? t('notifications.inbox', { defaultValue: 'Inbox' }) : t('notifications.archives', { defaultValue: 'Archives' })}
-              {!showArchived && archived.length > 0 ? ` (${archived.length})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
