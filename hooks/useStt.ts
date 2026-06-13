@@ -54,13 +54,27 @@ export function useStt() {
       const apiKey: string = cfg?.stt_api_key || cfg?.ai_api_key;
       const model: string = cfg?.stt_model || 'whisper-1';
 
-      console.log('[STT] url:', baseUrl, 'model:', model, 'key_len:', apiKey?.length);
-
       if (!baseUrl || !apiKey) {
         showToast('Config STT manquante — configure l\'IA dans les réglages');
         setState('idle');
         return null;
       }
+
+      // Azure OpenAI needs /openai/deployments/{model}/audio/transcriptions?api-version=...
+      // Standard OpenAI-compatible: {baseUrl}/audio/transcriptions with model in body
+      const isAzure = baseUrl.includes('.openai.azure.com');
+      let sttUrl: string;
+      const headers: Record<string, string> = {};
+      if (isAzure) {
+        const resourceBase = baseUrl.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
+        sttUrl = `${resourceBase}/openai/deployments/${model}/audio/transcriptions?api-version=2024-06-01`;
+        headers['api-key'] = apiKey;
+      } else {
+        sttUrl = `${baseUrl.replace(/\/$/, '')}/audio/transcriptions`;
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      console.log('[STT] url:', sttUrl, 'azure:', isAzure, 'key_len:', apiKey?.length);
 
       const lang = i18n.language ?? 'fr';
       const form = new FormData();
@@ -71,12 +85,12 @@ export function useStt() {
       } else {
         form.append('file', { uri, type: 'audio/m4a', name: 'rec.m4a' } as any);
       }
-      form.append('model', model);
+      if (!isAzure) form.append('model', model);
       form.append('language', lang);
 
-      const resp = await fetch(`${baseUrl}/audio/transcriptions`, {
+      const resp = await fetch(sttUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
+        headers,
         body: form,
       });
 

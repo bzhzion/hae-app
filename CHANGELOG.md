@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.43] - 2026-06-14
+
+### Fixed
+- STT Azure OpenAI : URL native `/openai/deployments/{model}/audio/transcriptions?api-version=2024-06-01` au lieu de `/openai/v1/audio/transcriptions` (DeploymentNotFound résolu)
+- STT Azure : header `api-key` au lieu de `Authorization: Bearer`
+- STT Azure : `model` retiré du body FormData (inutile avec URL deployment-specific)
+
 ## [1.3.42] - 2026-06-14
 
 ### Fixed

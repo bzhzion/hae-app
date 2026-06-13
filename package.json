@@ -1,6 +1,6 @@
 {
   "name": "hae-app",
-  "version": "1.3.42",
+  "version": "1.3.43",
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
