@@ -184,7 +184,7 @@ export default function OrgScreen() {
               </View>
               <TouchableOpacity
                 style={[s.roleBadge, { backgroundColor: (ORG_ROLE_COLORS[m.role] ?? '#6b7280') + '18', borderColor: (ORG_ROLE_COLORS[m.role] ?? '#6b7280') + '55' }]}
-                onPress={() => canManage && m.role !== 'owner' ? setRoleTarget(m) : undefined}
+                onPress={() => canManage ? setRoleTarget(m) : undefined}
                 accessibilityRole="button"
               >
                 <Text style={[s.roleText, { color: ORG_ROLE_COLORS[m.role] ?? '#6b7280' }]}>{m.role}</Text>
