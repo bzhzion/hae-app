@@ -7,12 +7,7 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 # Strip native-only plugins from app.json before web export
-RUN python3 -c "
-import json
-with open('app.json') as f: cfg = json.load(f)
-cfg['expo']['plugins'] = ['expo-router']
-with open('app.json', 'w') as f: json.dump(cfg, f)
-"
+RUN python3 -c "import json; d=json.load(open('app.json')); d['expo']['plugins']=['expo-router']; open('app.json','w').write(json.dumps(d))"
 RUN npx expo export --platform web
 
 FROM nginx:alpine
