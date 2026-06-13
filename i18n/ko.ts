@@ -297,6 +297,8 @@ export default {
     descriptionLabel: '설명',
     emailLabel: '이메일',
     loadingMsg: '로딩 중',
+    create: '만들기',
+    download: '다운로드',
   },
   login: {
     urlError: 'URL은 https://로 시작해야 합니다',
@@ -312,8 +314,13 @@ export default {
     unlock: '잠금 해제',
   },
   cards: {
-    aiConfigMissing: 'AI 설정 누락 — 설정에서 구성하세요',
+    aiConfigMissing: 'AI 설정 누락, 설정에서 구성하세요',
     aiError: 'AI 오류',
+    move: '이동',
+    archive: '보관',
+    noLabels: '레이블 없음. 첫 번째를 만드세요.',
+    projectMembers: '프로젝트 멤버',
+    dueDate: '마감일',
   },
   onboarding: {
     skip: '건너뛰기',

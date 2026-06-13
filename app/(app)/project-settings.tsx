@@ -223,6 +223,7 @@ export default function ProjectSettingsScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoFocus
+                    maxLength={254}
                     accessibilityLabel="Member email address"
                   />
                 </>

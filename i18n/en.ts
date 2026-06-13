@@ -297,6 +297,8 @@ export default {
     descriptionLabel: 'DESCRIPTION',
     emailLabel: 'EMAIL',
     loadingMsg: 'Loading',
+    create: 'Create',
+    download: 'Download',
   },
   login: {
     urlError: 'URL must start with https://',
@@ -312,8 +314,13 @@ export default {
     unlock: 'Unlock',
   },
   cards: {
-    aiConfigMissing: 'AI config missing — configure in settings',
+    aiConfigMissing: 'AI config missing, configure in settings',
     aiError: 'AI Error',
+    move: 'Move',
+    archive: 'Archive',
+    noLabels: 'No labels. Create the first one.',
+    projectMembers: 'Project members',
+    dueDate: 'Due date',
   },
   onboarding: {
     skip: 'Skip',

@@ -19,6 +19,14 @@ import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../stores/project';
 import { resolveAiConfig } from '../lib/aiConfig';
 
+function sanitizeMd(text: string): string {
+  return text
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/data:text\/html/gi, '');
+}
+
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
 
@@ -748,7 +756,7 @@ export default function CardDetailSheet({
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <TouchableOpacity style={s.topAction} onPress={() => setShowMovePicker(true)} accessibilityRole="button">
-          <Text style={s.topActionText}>Deplacer</Text>
+          <Text style={s.topActionText}>{t('cards.move')}</Text>
         </TouchableOpacity>
         {isInTrash ? (
           <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCardPermanently} accessibilityRole="button">
@@ -756,7 +764,7 @@ export default function CardDetailSheet({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={archiveCard} accessibilityRole="button">
-            <Text style={[s.topActionText, { color: BRAND }]}>Archiver</Text>
+            <Text style={[s.topActionText, { color: BRAND }]}>{t('cards.archive')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -800,10 +808,10 @@ export default function CardDetailSheet({
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={saveTitle}>
-                  <Text style={s.saveBtnText}>Enregistrer</Text>
+                  <Text style={s.saveBtnText}>{t('common.save')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingTitle(false)}>
-                  <Text style={s.cancelBtnText}>Annuler</Text>
+                  <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -820,7 +828,7 @@ export default function CardDetailSheet({
               <Text style={[s.metaText, isDueOverdue && { color: BRAND }]}>
                 {dueDate
                   ? new Date(dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                  : 'Echeance'}
+                  : t('cards.dueDate')}
               </Text>
             </TouchableOpacity>
 
@@ -899,10 +907,10 @@ export default function CardDetailSheet({
                 />
                 <View style={s.editRow}>
                   <TouchableOpacity style={s.saveBtn} onPress={saveDesc}>
-                    <Text style={s.saveBtnText}>Enregistrer</Text>
+                    <Text style={s.saveBtnText}>{t('common.save')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingDesc(false)}>
-                    <Text style={s.cancelBtnText}>Annuler</Text>
+                    <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]} onPress={handleDescMic} disabled={!sttReady} accessibilityLabel="Dicter">
                     {sttState === 'transcribing'
@@ -921,7 +929,7 @@ export default function CardDetailSheet({
                 {detail?.description ? (
                   <View style={s.descCard}>
                     <Marked
-                      value={detail.description}
+                      value={sanitizeMd(detail.description)}
                       flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }}
                       theme={{ colors: { text: '#3A3A36', link: '#A00000', code: '#E8E8E4', border: '#D8D8D4' } }}
                       styles={{
@@ -1034,10 +1042,10 @@ export default function CardDetailSheet({
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={addChecklist}>
-                  <Text style={s.saveBtnText}>Creer</Text>
+                  <Text style={s.saveBtnText}>{t('common.create')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cancelBtn} onPress={() => { setAddingChecklist(false); setNewChecklistTitle(''); }}>
-                  <Text style={s.cancelBtnText}>Annuler</Text>
+                  <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1218,7 +1226,7 @@ export default function CardDetailSheet({
         <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>LABELS DU PROJET</Text>
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
-            {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>Aucun label. Creer le premier.</Text>}
+            {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>{t('cards.noLabels')}</Text>}
             {projectLabels.map(l => {
               const active = detail?.labels.some(x => x.id === l.id) ?? false;
               return (
@@ -1253,10 +1261,10 @@ export default function CardDetailSheet({
                 </View>
                 <View style={[s.editRow, { marginTop: 8 }]}>
                   <TouchableOpacity style={s.saveBtn} onPress={createLabel}>
-                    <Text style={s.saveBtnText}>Creer</Text>
+                    <Text style={s.saveBtnText}>{t('common.create')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.cancelBtn} onPress={() => { setCreatingLabel(false); setNewLabelName(''); }}>
-                    <Text style={s.cancelBtnText}>Annuler</Text>
+                    <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1273,7 +1281,7 @@ export default function CardDetailSheet({
       <Modal visible={showMemberPicker} transparent animationType="slide" onRequestClose={() => setShowMemberPicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMemberPicker(false)} />
         <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>Membres du projet</Text>
+          <Text style={s.sheetTitle}>{t('cards.projectMembers')}</Text>
           {projectMembers.map(m => {
             const active = detail?.members.some(x => x.id === m.id) ?? false;
             return (
@@ -1310,7 +1318,7 @@ export default function CardDetailSheet({
       <Modal visible={showDuePicker} transparent animationType="slide" onRequestClose={() => setShowDuePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowDuePicker(false)} />
         <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>ECHEANCE</Text>
+          <Text style={s.sheetTitle}>{t('cards.dueDate').toUpperCase()}</Text>
           <CalendarPicker
             value={dueDate ?? null}
             onChange={async (ts) => { await patchCard({ due_date: ts }); setShowDuePicker(false); }}
@@ -1331,7 +1339,7 @@ export default function CardDetailSheet({
               style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
               onPress={() => { const orig = (detail?.attachments ?? []).find(a => a.id === videoViewerAtt.id); if (orig) downloadAttachment(orig); }}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Telecharger</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{t('common.download')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1356,7 +1364,7 @@ export default function CardDetailSheet({
               style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
               onPress={() => { if (imageViewerAtt) downloadAttachment(imageViewerAtt); }}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>⬇ Télécharger</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>⬇ {t('common.download')}</Text>
             </TouchableOpacity>
           )}
         </View>

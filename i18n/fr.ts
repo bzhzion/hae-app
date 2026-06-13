@@ -297,6 +297,8 @@ export default {
     descriptionLabel: 'DESCRIPTION',
     emailLabel: 'EMAIL',
     loadingMsg: 'Chargement en cours',
+    create: 'Créer',
+    download: 'Télécharger',
   },
   login: {
     urlError: 'URL doit commencer par https://',
@@ -312,8 +314,13 @@ export default {
     unlock: 'Déverrouiller',
   },
   cards: {
-    aiConfigMissing: 'Config IA manquante — configure dans les réglages',
+    aiConfigMissing: 'Config IA manquante, configure dans les réglages',
     aiError: 'Erreur IA',
+    move: 'Déplacer',
+    archive: 'Archiver',
+    noLabels: 'Aucun label. Créer le premier.',
+    projectMembers: 'Membres du projet',
+    dueDate: 'Échéance',
   },
   onboarding: {
     skip: 'Passer',

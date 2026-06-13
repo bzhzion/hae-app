@@ -383,7 +383,7 @@ Respond with only valid JSON, no explanation.`;
                   <Text style={s.annBodyText}>{ann.body}</Text>
                 </ScrollView>
                 {ann.cta_label && ann.cta_url && (
-                  <TouchableOpacity style={s.annCta} onPress={() => { if (ann.cta_url) Linking.openURL(ann.cta_url); }}>
+                  <TouchableOpacity style={s.annCta} onPress={() => { const safeUrl = ann.cta_url?.trim(); if (safeUrl && (safeUrl.startsWith('https://') || safeUrl.startsWith('http://'))) Linking.openURL(safeUrl); }}>
                     <Text style={s.annCtaText}>{ann.cta_label}</Text>
                   </TouchableOpacity>
                 )}

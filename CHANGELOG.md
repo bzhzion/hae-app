@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.29] - 2026-06-13
+
+### Fixed
+- i18n CardDetailSheet complet : Déplacer, Archiver, Enregistrer, Annuler, Créer, Echéance, Membres du projet, Aucun label, Télécharger
+- Nouvelles clés ajoutées : `cards.move`, `cards.archive`, `cards.noLabels`, `cards.projectMembers`, `cards.dueDate`, `common.create`, `common.download`
+- XSS Linking : validation protocole http/https dans tasks.tsx (cta_url annonces)
+- XSS Markdown : sanitizeMd() appliquée avant rendu `<Marked>` dans CardDetailSheet
+- maxLength={254} sur TextInput email dans project-settings.tsx
+
 ## [1.3.28] - 2026-06-13
 
 ### Fixed
