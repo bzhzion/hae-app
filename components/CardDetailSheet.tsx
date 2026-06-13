@@ -216,7 +216,10 @@ export default function CardDetailSheet({
         showToast(t('cards.aiConfigMissing'));
         return;
       }
-      const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\n\nCurrent description:\n${descDraft}`;
+      const labelCtx = (detail.labels ?? []).map((l: Label) => l.name).join(', ') || 'None';
+      const checklistCtx = (detail.checklists ?? []).map(cl => `- ${cl.title}:\n${cl.items.map((i: ChecklistItem) => `  • [${i.is_done ? 'x' : ' '}] ${i.text}`).join('\n')}`).join('\n') || 'None';
+      const commentCtx = comments.map(c => `- ${c.content}`).join('\n') || 'None';
+      const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\nLabels: ${labelCtx}\nChecklists:\n${checklistCtx}\nComments:\n${commentCtx}\n\nCurrent description:\n${descDraft}`;
       const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
@@ -226,8 +229,8 @@ export default function CardDetailSheet({
       const data = await resp.json();
       const improved = data.choices?.[0]?.message?.content?.trim();
       if (improved) setDescDraft(improved);
-    } catch {
-      showToast(t('cards.aiError'));
+    } catch (e: any) {
+      showToast(`AI: ${e?.message ?? String(e)}`);
     } finally {
       setImprovingDesc(false);
     }
@@ -419,8 +422,10 @@ export default function CardDetailSheet({
         showToast(t('cards.aiConfigMissing'));
         return;
       }
-      const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ');
-      const prompt = `You are a GTD assistant. Generate a practical checklist for this task. Respond in language code: ${lang}.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nLabels: ${labelNames || 'None'}\n\nRespond ONLY with a JSON object: {"title":"...","items":["...","..."]}. Between 3 and 8 concise, actionable items.`;
+      const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ') || 'None';
+      const clCtx = (detail.checklists ?? []).map(cl => `- ${cl.title}: ${cl.items.map((i: ChecklistItem) => i.text).join(', ')}`).join('\n') || 'None';
+      const cmtCtx = comments.map(c => `- ${c.content}`).join('\n') || 'None';
+      const prompt = `You are a GTD assistant. Generate a practical checklist for this task. Respond in language code: ${lang}.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nLabels: ${labelNames}\nExisting checklists:\n${clCtx}\nComments:\n${cmtCtx}\n\nRespond ONLY with a JSON object: {"title":"...","items":["...","..."]}. Between 3 and 8 concise, actionable items. Do not repeat items already in existing checklists.`;
       const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
@@ -444,7 +449,7 @@ export default function CardDetailSheet({
         return { ...prev, checklists: newChecklists };
       });
     } catch (e: any) {
-      showToast(t('cards.aiError'));
+      showToast(`AI: ${e?.message ?? String(e)}`);
     } finally {
       setGeneratingChecklist(false);
     }
@@ -460,7 +465,9 @@ export default function CardDetailSheet({
       if (!cfg?.ai_base_url || !cfg?.ai_api_key) { showToast(t('cards.aiConfigMissing')); return; }
       const available = projectLabels.map(l => ({ id: l.id, name: l.name }));
       const current = (detail.labels ?? []).map(l => l.id);
-      const prompt = `You are a GTD assistant. Based on the task below, suggest which labels to assign from the available list. Respond in JSON only: {"label_ids": ["id1","id2"]}. Only suggest labels not already assigned. Return empty array if none fit.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nAvailable labels: ${JSON.stringify(available)}\nAlready assigned: ${JSON.stringify(current)}`;
+      const clForLabels = (detail.checklists ?? []).map(cl => `- ${cl.title}: ${cl.items.map((i: ChecklistItem) => i.text).join(', ')}`).join('\n') || 'None';
+      const cmtForLabels = comments.map(c => `- ${c.content}`).join('\n') || 'None';
+      const prompt = `You are a GTD assistant. Based on the task below, suggest which labels to assign from the available list. Respond in JSON only: {"label_ids": ["id1","id2"]}. Only suggest labels not already assigned. Return empty array if none fit.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nChecklists:\n${clForLabels}\nComments:\n${cmtForLabels}\nAvailable labels: ${JSON.stringify(available)}\nAlready assigned: ${JSON.stringify(current)}`;
       const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
@@ -475,8 +482,8 @@ export default function CardDetailSheet({
         const label = projectLabels.find(l => l.id === id);
         if (label && !detail.labels.some(l => l.id === id)) await toggleLabelById(label);
       }
-    } catch {
-      showToast(t('cards.aiError'));
+    } catch (e: any) {
+      showToast(`AI: ${e?.message ?? String(e)}`);
     } finally {
       setSuggestingLabels(false);
     }

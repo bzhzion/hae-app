@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.32] - 2026-06-13
+
+### Fixed
+- Bouton mic dans création de carte : clic ne ferme plus le champ de saisie (onBlur ignoré quand mic actif via `micActiveRef`)
+- Suppression des logs debug `[AI]` dans CardDetailSheet.tsx
+
+## [1.3.31] - 2026-06-13
+
+### Added
+- Gestion des labels dans les réglages du projet : liste en pills cliquables, modal édition/ajout (nom + palette couleurs + preview), suppression avec confirmation
+- Bouton "+ Ajouter" labels dans project-settings.tsx
+- Nouvelles clés i18n : `projectSettings.labels`, `projectSettings.editLabel`, `projectSettings.newLabel`, `projectSettings.color`
+
 ## [1.3.30] - 2026-06-13
 
 ### Fixed

@@ -115,6 +115,7 @@ export default function TasksScreen() {
   const [renameText, setRenameText] = useState('');
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const expandAnim = useRef(new Animated.Value(0)).current;
+  const micActiveRef = useRef(false);
   const pagerRef = useRef<ScrollView>(null);
   const headerRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -129,7 +130,9 @@ export default function TasksScreen() {
 
   const handleMicPress = useCallback(async () => {
     if (isParsing) return;
+    micActiveRef.current = true;
     const text = await sttToggle();
+    micActiveRef.current = false;
     if (!text) return;
 
     if (!currentProjectId) {
@@ -487,7 +490,7 @@ Respond with only valid JSON, no explanation.`;
                             value={newCardTitle}
                             onChangeText={setNewCardTitle}
                             onSubmitEditing={() => createCard(col.id)}
-                            onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
+                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
                             returnKeyType="done"
                             accessibilityLabel="New task title"
                             maxLength={200}
@@ -527,7 +530,7 @@ Respond with only valid JSON, no explanation.`;
                             value={newCardTitle}
                             onChangeText={setNewCardTitle}
                             onSubmitEditing={() => createCard(col.id)}
-                            onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
+                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
                             returnKeyType="done"
                             accessibilityLabel="New task title"
                             maxLength={200}
