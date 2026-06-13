@@ -1,21 +1,16 @@
 import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
-import { usePrefsStore } from '@/stores/prefs';
 import UserAvatar from '@/components/UserAvatar';
 
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
-const HAE_SAVED_CREDS = 'hae-saved-creds';
 
 interface AppUser { id: string; name: string; email: string; role: string; is_active: number; }
 
@@ -24,13 +19,10 @@ const ROLE_COLORS: Record<string, string> = { admin: '#A00000', user: '#6b7280' 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { serverUrl, token, user: me, logout } = useAuthStore();
-  const resetPrefs = usePrefsStore(s => s.reset);
+  const { serverUrl, token, user: me } = useAuthStore();
   const { t } = useTranslation();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const [advancedVisible, setAdvancedVisible] = useState(false);
-  const appVersion = Constants.expoConfig?.version ?? '?';
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
@@ -75,28 +67,6 @@ export default function AdminScreen() {
         } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
       }},
     ]);
-  };
-
-  const handleResetApp = () => {
-    Alert.alert(
-      t('admin.resetConfirmTitle'),
-      t('admin.resetConfirmMsg'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('admin.resetData'), style: 'destructive', onPress: async () => {
-          try {
-            await AsyncStorage.clear();
-            if (Platform.OS !== 'web') {
-              try { await SecureStore.deleteItemAsync('hae-auth'); } catch {}
-              try { await SecureStore.deleteItemAsync(HAE_SAVED_CREDS); } catch {}
-            }
-            resetPrefs();
-            logout();
-            router.replace('/(auth)/login');
-          } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
-        }},
-      ]
-    );
   };
 
   return (
@@ -158,34 +128,6 @@ export default function AdminScreen() {
         }
         <View style={s.divider} />
 
-        {/* À propos */}
-        <Text style={s.sectionLabel}>{t('admin.about')}</Text>
-        <View style={s.block}>
-          <View style={[s.aboutRow, { borderBottomWidth: 1, borderBottomColor: '#F0F0EC' }]}>
-            <Text style={s.aboutLabel}>{t('admin.version')}</Text>
-            <Text style={s.aboutValue}>{appVersion}</Text>
-          </View>
-          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.fr')}>
-            <Text style={s.aboutLabel}>{t('admin.officialSite')}</Text>
-            <Text style={[s.aboutValue, { color: BRAND }]}>hae.breizhzion.fr ›</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={s.copyright}>{t('admin.copyright', { year: new Date().getFullYear() })}</Text>
-
-        {/* Paramètres avancés */}
-        <TouchableOpacity style={s.advancedToggle} onPress={() => setAdvancedVisible(v => !v)}>
-          <Text style={s.advancedToggleText}>{advancedVisible ? '▲' : '▼'} {t('admin.advancedSettings')}</Text>
-        </TouchableOpacity>
-
-        {advancedVisible && (
-          <View style={[s.block, { marginBottom: 8 }]}>
-            <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
-            <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
-              <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
-              <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
       </ScrollView>
     </View>
@@ -211,14 +153,4 @@ const s = StyleSheet.create({
   roleText:          { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   actionBtn:         { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionBtnText:     { fontSize: 12, fontWeight: '600' },
-  block:             { backgroundColor: '#fff', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#EBEBEB' },
-  aboutRow:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14 },
-  aboutLabel:        { fontSize: 14, color: '#4A4A44', fontWeight: '500' },
-  aboutValue:        { fontSize: 13, color: '#6B6B63', fontWeight: '500' },
-  copyright:         { fontSize: 11, color: '#8A8A80', textAlign: 'center', marginTop: 10, marginBottom: 4 },
-  advancedToggle:    { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
-  advancedToggleText:{ fontSize: 11, fontWeight: '600', color: '#8A8A80', letterSpacing: 0.5 },
-  dangerRow:         { paddingHorizontal: 14, paddingVertical: 12 },
-  dangerLabel:       { fontSize: 14, fontWeight: '600', color: BRAND },
-  dangerHint:        { fontSize: 12, color: '#6B6B63', marginTop: 3 },
 });

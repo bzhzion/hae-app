@@ -263,7 +263,9 @@ export default function ProfileScreen() {
         </Text>
         {ingestToken ? (
           <View style={s.tokenRow}>
-            <Text style={s.tokenText} numberOfLines={1} ellipsizeMode="middle">{ingestToken}</Text>
+            <Text style={s.tokenText} numberOfLines={1}>
+              {ingestToken.slice(0, 8)}{'•'.repeat(24)}{ingestToken.slice(-4)}
+            </Text>
             <TouchableOpacity style={s.tokenBtn} onPress={copyIngestToken} accessibilityRole="button">
               <Feather name={ingestCopied ? 'check' : 'copy'} size={14} color={ingestCopied ? '#22c55e' : '#6B6B63'} />
             </TouchableOpacity>
