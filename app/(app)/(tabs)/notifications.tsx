@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -22,6 +23,9 @@ interface Notif {
   project_name: string | null;
   owner_type: string | null;
   project_owner_id: string | null;
+  title: string | null;
+  body: string | null;
+  url: string | null;
   is_read: number;
   created_at: number;
 }
@@ -33,6 +37,7 @@ const TYPE_ICONS: Record<string, FeatherName> = {
   card_member_added: 'user-plus',
   card_due_soon:     'clock',
   card_moved:        'arrow-right-circle',
+  inbox_message:     'inbox',
   default:           'bell',
 };
 
@@ -144,18 +149,25 @@ export default function NotificationsScreen() {
   const unread = notifs.filter(n => !n.is_read).length;
   const displayList = showArchived ? archived : notifs;
 
-  const renderSwipeRight = useCallback((id: string) => (
-    <TouchableOpacity style={s.swipeAction} onPress={() => dismiss(id)} activeOpacity={0.85}>
+  const renderSwipeRight = useCallback(() => (
+    <View style={s.swipeAction}>
       <Feather name="archive" size={18} color="#fff" />
-    </TouchableOpacity>
-  ), [dismiss]);
+    </View>
+  ), []);
 
   const renderItem = useCallback(({ item }: { item: Notif }) => (
     <Swipeable
       ref={ref => swipeRefs.current.set(item.id, ref)}
-      renderRightActions={() => renderSwipeRight(item.id)}
+      renderRightActions={renderSwipeRight}
       overshootRight={false}
       friction={2}
+      rightThreshold={72}
+      onSwipeableOpen={(direction) => {
+        if (direction === 'right') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          dismiss(item.id);
+        }
+      }}
     >
       <TouchableOpacity
         style={[s.item, !item.is_read && s.itemUnread]}
@@ -168,8 +180,13 @@ export default function NotificationsScreen() {
         </View>
         <View style={s.itemBody}>
           <Text style={s.itemTitle} numberOfLines={2}>
-            {item.card_title ?? t('notifications.fallback')}
+            {item.type === 'inbox_message'
+              ? (item.title ?? t('notifications.fallback'))
+              : (item.card_title ?? t('notifications.fallback'))}
           </Text>
+          {item.type === 'inbox_message' && item.body ? (
+            <Text style={s.itemBody2} numberOfLines={3}>{item.body}</Text>
+          ) : null}
           <View style={s.itemMeta}>
             {item.project_name && (
               <View style={s.projectTag}>
@@ -178,7 +195,14 @@ export default function NotificationsScreen() {
             )}
             <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
           </View>
-          <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+          <View style={s.itemMetaRow}>
+            <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+            {item.type === 'inbox_message' && item.url ? (
+              <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
+                <Text style={s.itemLink}>Ouvrir</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
       </TouchableOpacity>
@@ -270,6 +294,9 @@ const s = StyleSheet.create({
   projectTagText:   { fontSize: 10, fontWeight: '700', color: '#6b7280', letterSpacing: 0.3, maxWidth: 120 },
   itemType:         { fontSize: 11, color: '#6B6B63', textTransform: 'capitalize' },
   itemTime:         { fontSize: 11, color: '#8A8A80', marginTop: 2 },
+  itemBody2:        { fontSize: 13, color: '#4A4A42', lineHeight: 18, marginTop: 2 },
+  itemMetaRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  itemLink:         { fontSize: 11, fontWeight: '700', color: BRAND },
   dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 6, flexShrink: 0 },
   sep:              { height: 1, backgroundColor: '#F5F5F0', marginLeft: 56 },
   swipeAction:      { backgroundColor: '#A00000', width: 72, alignItems: 'center', justifyContent: 'center' },

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { useBiometricStore } from '@/stores/biometric';
 import { usePrefsStore } from '@/stores/prefs';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
+import { Feather } from '@expo/vector-icons';
 
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
@@ -36,6 +38,11 @@ export default function ProfileScreen() {
   const [pwError, setPwError] = useState('');
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+
+  const [ingestToken, setIngestToken] = useState<string | null>(null);
+  const [ingestTokenLoading, setIngestTokenLoading] = useState(false);
+  const [ingestCopied, setIngestCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const changeAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -103,6 +110,29 @@ export default function ProfileScreen() {
       LocalAuthentication.hasHardwareAsync().then(setHasHardware);
     }
   }, []);
+
+  useEffect(() => {
+    api('GET', '/api/users/me/ingest-token', undefined, { silent: true })
+      .then((r: any) => setIngestToken(r?.token ?? null))
+      .catch(() => {});
+  }, [api]);
+
+  const generateIngestToken = useCallback(async () => {
+    setIngestTokenLoading(true);
+    try {
+      const r: any = await api('POST', '/api/users/me/ingest-token');
+      setIngestToken(r?.token ?? null);
+    } catch (e: any) { Alert.alert('Erreur', e.message); }
+    finally { setIngestTokenLoading(false); }
+  }, [api]);
+
+  const copyIngestToken = useCallback(async () => {
+    if (!ingestToken) return;
+    await Clipboard.setStringAsync(ingestToken);
+    setIngestCopied(true);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setIngestCopied(false), 2000);
+  }, [ingestToken]);
 
   const changeLang = useCallback(async (lang: Language) => {
     setCurrentLang(lang);
@@ -194,6 +224,35 @@ export default function ProfileScreen() {
           subtitleKey="subtitleUser"
         />
 
+        <View style={s.divider} />
+
+        <Text style={s.sectionLabel}>TOKEN API NOTIFICATIONS</Text>
+        <Text style={{ fontSize: 12, color: '#6B6B63', marginBottom: 12 }}>
+          Permet à des apps externes d'envoyer des notifications via{'\n'}
+          POST /api/ingest avec Authorization: Bearer &lt;token&gt;
+        </Text>
+        {ingestToken ? (
+          <View style={s.tokenRow}>
+            <Text style={s.tokenText} numberOfLines={1} ellipsizeMode="middle">{ingestToken}</Text>
+            <TouchableOpacity style={s.tokenBtn} onPress={copyIngestToken} accessibilityRole="button">
+              <Feather name={ingestCopied ? 'check' : 'copy'} size={14} color={ingestCopied ? '#22c55e' : '#6B6B63'} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Aucun token généré</Text>
+        )}
+        <TouchableOpacity
+          style={[s.editProfileBtn, { alignSelf: 'flex-start', marginTop: 8 }]}
+          onPress={generateIngestToken}
+          disabled={ingestTokenLoading}
+          accessibilityRole="button"
+        >
+          {ingestTokenLoading
+            ? <ActivityIndicator size="small" color={BRAND} />
+            : <Text style={s.editProfileBtnText}>{ingestToken ? 'Régénérer' : 'Générer un token'}</Text>
+          }
+        </TouchableOpacity>
+
         <View style={s.spacer} />
 
         <TouchableOpacity style={s.logoutBtn} onPress={() => { resetPrefs(); logout(); router.replace('/(auth)/login'); }} accessibilityRole="button">
@@ -275,4 +334,7 @@ const s = StyleSheet.create({
   inviteError:      { fontSize: 13, color: BRAND, marginBottom: 8 },
   saveBtn:          { backgroundColor: BRAND, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   saveBtnText:      { color: '#fff', fontSize: 15, fontWeight: '700' },
+  tokenRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F5F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  tokenText:        { flex: 1, fontSize: 12, fontFamily: 'monospace', color: '#1A1A1A' },
+  tokenBtn:         { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });

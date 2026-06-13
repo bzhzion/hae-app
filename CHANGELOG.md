@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.7] - 2026-06-13
+
+### Added
+- **Ingest API** : section "TOKEN API NOTIFICATIONS" dans Settings pour générer/régénérer le token
+- Copie du token en un tap (feedback visuel "check" 2 secondes)
+- Notifications : affichage `inbox_message` avec titre, corps, bouton "Ouvrir" si URL présente
+- Notifications : swipe gauche auto-archive au relâchement (plus besoin de taper le bouton rouge)
+- Notifications : retour haptique `NotificationFeedbackType.Success` à l'archivage par swipe
+
 ## [1.3.6] - 2026-06-12
 
 ### Added
