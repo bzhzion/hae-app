@@ -54,6 +54,8 @@ export function useStt() {
       const apiKey: string = cfg?.stt_api_key || cfg?.ai_api_key;
       const model: string = cfg?.stt_model || 'whisper-1';
 
+      console.log('[STT] url:', baseUrl, 'model:', model, 'key_len:', apiKey?.length);
+
       if (!baseUrl || !apiKey) {
         showToast('Config STT manquante — configure l\'IA dans les réglages');
         setState('idle');
