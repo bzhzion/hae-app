@@ -34,7 +34,7 @@ async function clearCreds() {
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { serverUrl, setServerUrl, setToken, setUser } = useAuthStore();
+  const { serverUrl, setServerUrl, setToken, setRefreshToken, setUser } = useAuthStore();
   const fetchPrefs = usePrefsStore(s => s.fetch);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
@@ -79,6 +79,7 @@ export default function LoginScreen() {
       }
 
       setToken(data.accessToken);
+      setRefreshToken(data.refreshToken ?? null);
       setUser(data.user);
       saveToAppGroup(serverUrl, data.accessToken);
       const prefs = await fetchPrefs(serverUrl, data.accessToken).then(() => usePrefsStore.getState().prefs);

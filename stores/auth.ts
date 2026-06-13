@@ -9,9 +9,11 @@ interface AuthUser { id: string; name: string; email: string; role: string; avat
 
 interface AuthState {
   token: string | null;
+  refreshToken: string | null;
   serverUrl: string;
   user: AuthUser | null;
   setToken: (token: string | null) => void;
+  setRefreshToken: (token: string | null) => void;
   setServerUrl: (url: string) => void;
   setUser: (user: AuthUser | null) => void;
   logout: () => void;
@@ -57,15 +59,15 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
+      refreshToken: null,
       serverUrl: '',
       user: null,
-      setToken: (token) => {
-        set({ token });
-      },
+      setToken: (token) => set({ token }),
+      setRefreshToken: (refreshToken) => set({ refreshToken }),
       setServerUrl: (serverUrl) => set({ serverUrl }),
       setUser: (user) => set({ user }),
       logout: () => {
-        set({ token: null, user: null });
+        set({ token: null, refreshToken: null, user: null });
         clearAppGroup();
         import('../stores/project').then(m => m.useProjectStore.getState().clearProject());
       },

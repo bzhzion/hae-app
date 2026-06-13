@@ -1,10 +1,39 @@
 import { showToast } from '../stores/toast';
+import { useAuthStore } from '../stores/auth';
+
+let refreshing: Promise<string | null> | null = null;
+
+async function tryRefresh(serverUrl: string): Promise<string | null> {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const { refreshToken, setToken, setRefreshToken, logout } = useAuthStore.getState();
+    if (!refreshToken) { logout(); return null; }
+    try {
+      const r = await fetch(`${serverUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!r.ok) { logout(); return null; }
+      const data = await r.json();
+      setToken(data.accessToken);
+      setRefreshToken(data.refreshToken ?? null);
+      return data.accessToken as string;
+    } catch {
+      logout();
+      return null;
+    }
+  })();
+  try { return await refreshing; } finally { refreshing = null; }
+}
 
 export function makeApi(serverUrl: string, token: string) {
   return async function api(method: string, path: string, body?: any, opts?: { silent?: boolean; noRetry?: boolean }): Promise<any> {
     const silent = opts?.silent ?? false;
     const delays = opts?.noRetry ? [] : [1000, 2000, 4000];
     let lastErr: Error = new Error('Réseau indisponible');
+    let currentToken = token;
+
     for (let attempt = 0; attempt <= delays.length; attempt++) {
       const ctrl = new AbortController();
       const timeout = setTimeout(() => ctrl.abort(), 5000);
@@ -12,11 +41,27 @@ export function makeApi(serverUrl: string, token: string) {
         const r = await fetch(`${serverUrl}${path}`, {
           method,
           signal: ctrl.signal,
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
         clearTimeout(timeout);
         if (r.status === 401) {
+          const newToken = await tryRefresh(serverUrl);
+          if (newToken) {
+            currentToken = newToken;
+            // Retry immédiatement avec le nouveau token
+            const r2 = await fetch(`${serverUrl}${path}`, {
+              method,
+              headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
+              body: body !== undefined ? JSON.stringify(body) : undefined,
+            });
+            if (!r2.ok) {
+              if (r2.status === 401) { if (!silent) showToast('Session expirée, reconnecte-toi'); throw new Error('401'); }
+              throw new Error(await r2.text());
+            }
+            if (r2.status === 204) return null;
+            return r2.json();
+          }
           if (!silent) showToast('Session expirée, reconnecte-toi');
           throw new Error('401');
         }
