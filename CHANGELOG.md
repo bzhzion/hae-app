@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.37] - 2026-06-13
+
+### Fixed
+- Création de carte : erreur réseau silencieuse (`catch {}`) → re-ouvre le modal avec le titre pré-rempli + toast `tasks.createError`
+
 ## [1.3.36] - 2026-06-13
 
 ### Fixed

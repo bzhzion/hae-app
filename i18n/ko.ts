@@ -30,6 +30,7 @@ export default {
     wellDone: '잘 했어요.',
     newTask: '새 작업...',
     dictate: '받아쓰기',
+    createError: '네트워크 오류 — 다시 시도하세요',
     inbox: '받은함',
     next: '다음',
     urgent: '긴급',

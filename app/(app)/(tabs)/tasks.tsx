@@ -310,8 +310,13 @@ Respond with only valid JSON, no explanation.`;
         body: JSON.stringify({ title }),
       });
       if (res.status === 401) { logout(); router.replace('/(auth)/login'); return; }
+      if (!res.ok) throw new Error(`${res.status}`);
       await fetchProject();
-    } catch {}
+    } catch {
+      setNewCardTitle(title);
+      openAddModal(colId);
+      showToast(t('tasks.createError'));
+    }
   }, [newCardTitle, columns, serverUrl, token, fetchProject, logout, router]);
 
 

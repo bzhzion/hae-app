@@ -30,6 +30,7 @@ export default {
     wellDone: 'Well done.',
     newTask: 'New task...',
     dictate: 'Dictate',
+    createError: 'Network error — please retry',
     inbox: 'INBOX',
     next: 'NEXT',
     urgent: 'URGENT',
