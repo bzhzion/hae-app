@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,11 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+
+const HAE_SAVED_CREDS = 'hae-saved-creds';
 
 const BRAND = '#A00000';
 const BG = '#FAFAF8';
@@ -38,6 +43,31 @@ export default function ProfileScreen() {
   const [pwError, setPwError] = useState('');
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
+
+  const appVersion = Constants.expoConfig?.version ?? '?';
+  const [advancedVisible, setAdvancedVisible] = useState(false);
+
+  const handleResetApp = () => {
+    Alert.alert(
+      t('admin.resetConfirmTitle'),
+      t('admin.resetConfirmMsg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('admin.resetData'), style: 'destructive', onPress: async () => {
+          try {
+            await AsyncStorage.clear();
+            if (RNPlatform.OS !== 'web') {
+              try { await SecureStore.deleteItemAsync('hae-auth'); } catch {}
+              try { await SecureStore.deleteItemAsync(HAE_SAVED_CREDS); } catch {}
+            }
+            resetPrefs();
+            logout();
+            router.replace('/(auth)/login');
+          } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
+        }},
+      ]
+    );
+  };
 
   const [ingestToken, setIngestToken] = useState<string | null>(null);
   const [ingestTokenLoading, setIngestTokenLoading] = useState(false);
@@ -253,6 +283,35 @@ export default function ProfileScreen() {
           }
         </TouchableOpacity>
 
+        <View style={s.divider} />
+
+        <Text style={s.sectionLabel}>{t('admin.about')}</Text>
+        <View style={s.block}>
+          <View style={[s.aboutRow, { borderBottomWidth: 1, borderBottomColor: '#F0F0EC' }]}>
+            <Text style={s.aboutLabel}>{t('admin.version')}</Text>
+            <Text style={s.aboutValue}>{appVersion}</Text>
+          </View>
+          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.fr')}>
+            <Text style={s.aboutLabel}>{t('admin.officialSite')}</Text>
+            <Text style={[s.aboutValue, { color: BRAND }]}>hae.breizhzion.fr ›</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={s.copyright}>{t('admin.copyright', { year: new Date().getFullYear() })}</Text>
+
+        <TouchableOpacity style={s.advancedToggle} onPress={() => setAdvancedVisible(v => !v)}>
+          <Text style={s.advancedToggleText}>{advancedVisible ? '▲' : '▼'} {t('admin.advancedSettings')}</Text>
+        </TouchableOpacity>
+
+        {advancedVisible && (
+          <View style={[s.block, { marginBottom: 8 }]}>
+            <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
+            <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
+              <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
+              <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={s.spacer} />
 
         <TouchableOpacity style={s.logoutBtn} onPress={() => { resetPrefs(); logout(); router.replace('/(auth)/login'); }} accessibilityRole="button">
@@ -337,4 +396,14 @@ const s = StyleSheet.create({
   tokenRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F5F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   tokenText:        { flex: 1, fontSize: 12, fontFamily: 'monospace', color: '#1A1A1A' },
   tokenBtn:         { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  block:            { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#EBEBEB' },
+  aboutRow:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14 },
+  aboutLabel:       { fontSize: 14, color: '#4A4A44', fontWeight: '500' },
+  aboutValue:       { fontSize: 13, color: '#6B6B63', fontWeight: '500' },
+  copyright:        { fontSize: 11, color: '#8A8A80', textAlign: 'center', marginTop: 10, marginBottom: 4 },
+  advancedToggle:   { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
+  advancedToggleText:{ fontSize: 11, fontWeight: '600', color: '#8A8A80', letterSpacing: 0.5 },
+  dangerRow:        { paddingHorizontal: 14, paddingVertical: 12 },
+  dangerLabel:      { fontSize: 14, fontWeight: '600', color: BRAND },
+  dangerHint:       { fontSize: 12, color: '#6B6B63', marginTop: 3 },
 });
