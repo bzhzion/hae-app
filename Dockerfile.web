@@ -6,7 +6,7 @@ COPY scripts/ ./scripts/
 RUN npm ci --legacy-peer-deps
 
 COPY . .
-RUN npx expo export --platform web
+RUN EXPO_WEB_BUILD=1 npx expo export --platform web
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
