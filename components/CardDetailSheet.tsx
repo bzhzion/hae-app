@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useStt } from '../hooks/useStt';
+import { useAiConfig } from '../hooks/useAiConfig';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { showToast } from '../stores/toast';
 import { makeApi } from '../lib/api';
@@ -227,6 +228,8 @@ export default function CardDetailSheet({
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [showDuePicker, setShowDuePicker] = useState(false);
+
+  const { aiReady, sttReady } = useAiConfig();
 
   const [addingChecklist, setAddingChecklist] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
@@ -895,12 +898,12 @@ export default function CardDetailSheet({
                   <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingDesc(false)}>
                     <Text style={s.cancelBtnText}>Annuler</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive]} onPress={handleDescMic} accessibilityLabel="Dicter">
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]} onPress={handleDescMic} disabled={!sttReady} accessibilityLabel="Dicter">
                     {sttState === 'transcribing'
                       ? <ActivityIndicator size="small" color="#A00000" />
-                      : <Ionicons name="mic" size={14} color={sttState === 'recording' ? '#fff' : '#A00000'} />}
+                      : <Ionicons name="mic" size={14} color={sttState === 'recording' ? '#fff' : (!sttReady ? '#C8C8C0' : '#A00000')} />}
                   </TouchableOpacity>
-                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (!descDraft.trim() || improvingDesc) && { opacity: 0.4 }]} onPress={improveDesc} disabled={!descDraft.trim() || improvingDesc} accessibilityLabel="Améliorer avec IA">
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (!descDraft.trim() || improvingDesc || !aiReady) && { opacity: 0.4 }]} onPress={improveDesc} disabled={!descDraft.trim() || improvingDesc || !aiReady} accessibilityLabel="Améliorer avec IA">
                     {improvingDesc
                       ? <ActivityIndicator size="small" color={BRAND} />
                       : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
@@ -1035,7 +1038,7 @@ export default function CardDetailSheet({
               <TouchableOpacity style={s.addSubBtn} onPress={() => setAddingChecklist(true)}>
                 <Text style={s.addSubBtnText}>+ Checklist</Text>
               </TouchableOpacity>
-              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, generatingChecklist && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist} accessibilityLabel="Générer checklist avec IA">
+              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (generatingChecklist || !aiReady) && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist || !aiReady} accessibilityLabel="Générer checklist avec IA">
                 {generatingChecklist
                   ? <ActivityIndicator size="small" color={BRAND} />
                   : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
@@ -1174,13 +1177,14 @@ export default function CardDetailSheet({
               />
               <TouchableOpacity
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive]}
+                style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]}
                 onPress={handleCommentMic}
+                disabled={!sttReady}
                 accessibilityLabel="Dicter commentaire"
               >
                 {sttCommentState === 'transcribing'
                   ? <ActivityIndicator size="small" color={BRAND} />
-                  : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : BRAND} />}
+                  : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : (!sttReady ? '#C8C8C0' : BRAND)} />}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
@@ -1373,6 +1377,7 @@ const s = StyleSheet.create({
   cancelBtnText:    { color: '#4A4A44', fontSize: 13, fontWeight: '600' },
   micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
   wandBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  aiDisabled:       { borderColor: '#C8C8C0', opacity: 0.4 },
   micBtnDescActive: { backgroundColor: '#A00000' },
 
   metaRow:          { flexDirection: 'row', gap: 8, marginBottom: 20 },

@@ -153,18 +153,33 @@ export default function ProfileScreen() {
   }, [api]);
 
   const generateIngestToken = useCallback(async () => {
-    setIngestTokenLoading(true);
-    try {
-      const r: any = await api('POST', '/api/users/me/ingest-token');
-      if (r?.token) {
-        setIngestToken(r.token);
-        setIngestCopied(false);
-        setShowTokenModal(true);
-      }
-      setIngestConfigured(true);
-    } catch (e: any) { Alert.alert('Erreur', e.message); }
-    finally { setIngestTokenLoading(false); }
-  }, [api]);
+    const doGenerate = async () => {
+      setIngestTokenLoading(true);
+      try {
+        const r: any = await api('POST', '/api/users/me/ingest-token');
+        if (r?.token) {
+          setIngestToken(r.token);
+          setIngestCopied(false);
+          setShowTokenModal(true);
+        }
+        setIngestConfigured(true);
+      } catch (e: any) { Alert.alert('Erreur', e.message); }
+      finally { setIngestTokenLoading(false); }
+    };
+
+    if (ingestConfigured) {
+      Alert.alert(
+        'Régénérer le token ?',
+        "L'ancien token sera immédiatement révoqué. Toutes les apps qui l'utilisent devront être mises à jour.",
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Régénérer', style: 'destructive', onPress: doGenerate },
+        ]
+      );
+    } else {
+      doGenerate();
+    }
+  }, [api, ingestConfigured]);
 
   const copyIngestToken = useCallback(async () => {
     if (!ingestToken) return;
@@ -269,7 +284,8 @@ export default function ProfileScreen() {
         <Text style={s.sectionLabel}>TOKEN API NOTIFICATIONS</Text>
         <Text style={{ fontSize: 12, color: '#6B6B63', marginBottom: 12 }}>
           Permet à des apps externes d'envoyer des notifications via{'\n'}
-          POST /api/ingest avec Authorization: Bearer &lt;token&gt;
+          <Text style={{ fontFamily: 'monospace', color: '#1A1A1A' }}>POST {serverUrl}/api/ingest{'\n'}</Text>
+          avec{' '}<Text style={{ fontFamily: 'monospace', color: '#1A1A1A' }}>Authorization: Bearer &lt;token&gt;</Text>
         </Text>
         {ingestConfigured ? (
           <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Token actif — configuré</Text>

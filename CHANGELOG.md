@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.3.23] - 2026-06-13
+
+### Added
+- Hook `useAiConfig` : résout la config IA au montage et expose `aiReady` + `sttReady`
+- Boutons IA grisés si IA non configurée : mic dictée (tasks), baguette description, baguette checklist, mic commentaire (CardDetailSheet)
+
+## [1.3.22] - 2026-06-13
+
+### Changed
+- Parse dictée vocale migré client-side : plus d'appel `/api/ai/parse`, appel LLM direct
+- Récupère les labels du projet via `GET /api/projects/:id/labels` puis les passe au LLM
+
+## [1.3.21] - 2026-06-13
+
+### Changed
+- Dictée vocale : après transcription, appel au route `/ai/parse` pour extraire titre, description, date, colonne GTD et labels depuis le texte
+- Carte créée directement dans la bonne colonne GTD avec tous les champs remplis (labels compris) — toast de confirmation affiché
+- Fallback : si parse ou IA indisponible, le texte est mis dans le champ titre comme avant
+
+## [1.3.20] - 2026-06-13
+
+### Added
+- Config IA : preset **Gemini** (endpoint OpenAI-compatible Google, modèle `gemini-2.0-flash`, clé via Google AI Studio)
+
+## [1.3.19] - 2026-06-13
+
+### Added
+- Config IA : preset **Azure AI** (GitHub Models / Azure AI Foundry, endpoint OpenAI-compatible, clé = GitHub PAT)
+- Config IA : preset **···** (Personnalisé) pour entrer n'importe quelle URL manuellement
+- Config IA : bandeau bleu informatif pour Azure (explication GitHub token) et Personnalisé
+
+## [1.3.18] - 2026-06-13
+
+### Changed
+- Config IA : ajout preset **Claude** (via OpenRouter, modèle `anthropic/claude-haiku-4-5`) avec badge "★ Recommandé"
+- Config IA : OpenAI passe de `gpt-4o` à `gpt-4.1-mini` (plus léger, suffisant pour la gestion de tâches)
+- Config IA : Mistral passe de `mistral-large-latest` à `mistral-small-latest`
+- Config IA : preset actif tracké par ID (Claude et OpenRouter ont la même URL mais des modèles distincts)
+
+## [1.3.17] - 2026-06-13
+
+### Changed
+- Config IA : terminologie simplifiée ("Adresse du serveur IA", "Modèle IA", "Transcription vocale") en FR/EN/KO
+- Config IA : bandeau contextuel après sélection d'un preset — lien direct vers la page de clé API (OpenAI, Mistral, Groq, OpenRouter)
+- Config IA : Ollama affiche un bandeau vert "tourne en local, aucune clé requise"
+- Config IA : section transcription vocale avec description explicative
+
+## [1.3.16] - 2026-06-13
+
+### Changed
+- Config IA (profil, org, projet) : visuel cascade priorité affiché à l'ouverture de chaque section
+- Config IA : badge ①②③ à côté du titre indique le rang de priorité
+- Config IA : subtitles mis à jour avec mention explicite de la priorité (1/2/3) en FR/EN/KO
+- Config IA : note "La première config trouvée est utilisée" dans le bandeau cascade
+
+## [1.3.15] - 2026-06-13
+
+### Fixed
+- Token API ingest : confirmation Alert avant régénération ("L'ancien token sera révoqué")
+- Token API ingest : URL complète affichée dans la description (`POST {serverUrl}/api/ingest`)
+
+## [1.3.14] - 2026-06-13
+
+### Changed
+- **Onboarding refondu** : 7 slides pédagogiques (Hae/해, GTD concept, GTD 5 étapes, 6 colonnes, Cartes, Équipe, IA)
+- Onboarding : slide GTD explique pourquoi la méthode fonctionne (David Allen, charge mentale)
+- Onboarding : slide "5 étapes" avec rendering custom (liste numérotée : Capturer, Clarifier, Organiser, Réviser, Agir)
+- Onboarding : slide "6 colonnes" avec rendering custom (chaque colonne avec couleur + description de son rôle GTD)
+- Onboarding : navigation retour (flèche gauche) pour revenir à la slide précédente
+- Onboarding : tout le texte en 3 langues (FR/EN/KO) via le système i18n existant
+
 ## [1.3.13] - 2026-06-13
 
 ### Added

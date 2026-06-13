@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, Dimensions, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, TextInput, Keyboard, Image, Platform, Animated, Alert, Modal, KeyboardAvoidingView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useStt } from '@/hooks/useStt';
+import { useAiConfig } from '@/hooks/useAiConfig';
+import { showToast } from '@/stores/toast';
+import { makeApi } from '@/lib/api';
+import { resolveAiConfig } from '@/lib/aiConfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/auth';
@@ -112,13 +116,92 @@ export default function TasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token, serverUrl, logout } = useAuthStore();
-  const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, pendingNewCardTitle, setPendingNewCardTitle, refreshKey } = useProjectStore();
+  const { currentProjectId, currentProjectName, currentProjectOwnerType, currentProjectOwnerId, pendingCardId, setPendingCard, pendingNewCardTitle, setPendingNewCardTitle, refreshKey } = useProjectStore();
+  const api = makeApi(serverUrl ?? '', token ?? '');
   const { state: sttState, toggle: sttToggle } = useStt();
+  const [isParsing, setIsParsing] = useState(false);
+  const { sttReady, aiReady } = useAiConfig();
+  const micEnabled = sttReady && aiReady;
 
   const handleMicPress = useCallback(async () => {
+    if (isParsing) return;
     const text = await sttToggle();
-    if (text) setNewCardTitle(prev => prev ? prev + ' ' + text : text);
-  }, [sttToggle]);
+    if (!text) return;
+
+    if (!currentProjectId) {
+      setNewCardTitle(prev => prev ? prev + ' ' + text : text);
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      const cfg = await resolveAiConfig(api, currentProjectId, currentProjectOwnerType, currentProjectOwnerId);
+      if (!cfg?.ai_base_url || !cfg?.ai_api_key) throw new Error('no ai config');
+
+      const labelsRes = await fetch(`${serverUrl}/api/projects/${currentProjectId}/labels`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const labels: { id: string; name: string }[] = labelsRes.ok ? await labelsRes.json() : [];
+
+      const today = new Date().toISOString().split('T')[0];
+      const labelsSection = labels.length > 0
+        ? `\nAvailable labels: ${JSON.stringify(labels)}\n- label_ids (array of label id strings from the list above, empty array [] if none fit)`
+        : '';
+      const prompt = `Extract task information from this text and return JSON only. Today is ${today}.
+Fields:
+- title (string)
+- description (string|null): expand and rephrase if needed, in the same language as the input
+- due_date (ISO date string|null)
+- column_type (one of: gtd_inbox, gtd_next, gtd_urgent, gtd_someday, gtd_waiting|null)${labelsSection}
+<user_text>${text}</user_text>
+Respond with only valid JSON, no explanation.`;
+
+      const llmRes = await fetch(`${cfg.ai_base_url}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
+        body: JSON.stringify({ model: cfg.ai_model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.2 }),
+      });
+      if (!llmRes.ok) throw new Error('llm failed');
+      const llmData = await llmRes.json();
+      const raw = llmData.choices?.[0]?.message?.content ?? '';
+      const parsed = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+
+      const targetCol = (parsed.column_type
+        ? columns.find((c: Column) => c.type === parsed.column_type)
+        : null) ?? columns.find((c: Column) => c.type === 'gtd_inbox') ?? columns[0];
+
+      if (!targetCol) throw new Error('no column');
+
+      const createRes = await fetch(`${serverUrl}/api/columns/${targetCol.id}/cards`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: parsed.title ?? text,
+          ...(parsed.description && { description: parsed.description }),
+          ...(parsed.due_date && { due_date: parsed.due_date }),
+        }),
+      });
+      if (!createRes.ok) throw new Error('create failed');
+      const newCard = await createRes.json();
+
+      if (Array.isArray(parsed.label_ids) && parsed.label_ids.length > 0) {
+        await Promise.allSettled(parsed.label_ids.map((lId: string) =>
+          fetch(`${serverUrl}/api/cards/${newCard.id}/labels`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labelId: lId }),
+          })
+        ));
+      }
+
+      await fetchProject();
+      showToast(parsed.title ?? text);
+    } catch {
+      setNewCardTitle(prev => prev ? prev + ' ' + text : text);
+    } finally {
+      setIsParsing(false);
+    }
+  }, [isParsing, sttToggle, currentProjectId, currentProjectOwnerType, currentProjectOwnerId, serverUrl, token, columns, fetchProject]);
 
   const fetchProject = useCallback(async () => {
     if (!currentProjectId) return;
@@ -360,8 +443,8 @@ export default function TasksScreen() {
                             returnKeyType="done"
                             accessibilityLabel="New task title"
                           />
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive]} onPress={handleMicPress} accessibilityLabel="Dicter">
-                            {sttState === 'transcribing'
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
+                            {sttState === 'transcribing' || isParsing
                               ? <ActivityIndicator size="small" color={BRAND} />
                               : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
                           </TouchableOpacity>
@@ -399,8 +482,8 @@ export default function TasksScreen() {
                             returnKeyType="done"
                             accessibilityLabel="New task title"
                           />
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive]} onPress={handleMicPress} accessibilityLabel="Dicter">
-                            {sttState === 'transcribing'
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
+                            {sttState === 'transcribing' || isParsing
                               ? <ActivityIndicator size="small" color={BRAND} />
                               : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
                           </TouchableOpacity>
@@ -556,6 +639,7 @@ const s = StyleSheet.create({
   quickInput:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 8 },
   micBtn:         { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   micBtnActive:   { backgroundColor: BRAND },
+  micBtnDisabled: { borderColor: '#C8C8C0', opacity: 0.4 },
   cancelBtn:      { width: 22, height: 22, borderRadius: 11, backgroundColor: '#E8E8E4', alignItems: 'center', justifyContent: 'center' },
   tabs:           { flexDirection: 'row', paddingHorizontal: 20 },
   tab:            { width: TAB_W, paddingBottom: 10, alignItems: 'center' },
