@@ -81,7 +81,7 @@ export default function ProfileScreen() {
 
   const changeAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission refusée', 'Accès à la galerie requis.'); return; }
+    if (!perm.granted) { Alert.alert(t('common.permissionDenied'), t('settings.galleryPermission')); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -104,7 +104,7 @@ export default function ProfileScreen() {
       const { avatar_url } = await r.json();
       useAuthStore.getState().setUser({ ...me!, avatar_url });
     } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Upload échoué');
+      Alert.alert(t('common.error'), e.message ?? 'Upload échoué');
     } finally {
       setUploadingAvatar(false);
     }
@@ -163,23 +163,23 @@ export default function ProfileScreen() {
           setShowTokenModal(true);
         }
         setIngestConfigured(true);
-      } catch (e: any) { Alert.alert('Erreur', e.message); }
+      } catch (e: any) { Alert.alert(t('common.error'), e.message); }
       finally { setIngestTokenLoading(false); }
     };
 
     if (ingestConfigured) {
       Alert.alert(
-        'Régénérer le token ?',
-        "L'ancien token sera immédiatement révoqué. Toutes les apps qui l'utilisent devront être mises à jour.",
+        t('settings.regenTokenTitle'),
+        t('settings.regenTokenMsg'),
         [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Régénérer', style: 'destructive', onPress: doGenerate },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('settings.regen'), style: 'destructive', onPress: doGenerate },
         ]
       );
     } else {
       doGenerate();
     }
-  }, [api, ingestConfigured]);
+  }, [api, ingestConfigured, t]);
 
   const copyIngestToken = useCallback(async () => {
     if (!ingestToken) return;
@@ -281,16 +281,16 @@ export default function ProfileScreen() {
 
         <View style={s.divider} />
 
-        <Text style={s.sectionLabel}>TOKEN API NOTIFICATIONS</Text>
+        <Text style={s.sectionLabel}>{t('settings.apiTokenTitle')}</Text>
         <Text style={{ fontSize: 12, color: '#6B6B63', marginBottom: 12 }}>
           Permet à des apps externes d'envoyer des notifications via{'\n'}
           <Text style={{ fontFamily: 'monospace', color: '#1A1A1A' }}>POST {serverUrl}/api/ingest{'\n'}</Text>
           avec{' '}<Text style={{ fontFamily: 'monospace', color: '#1A1A1A' }}>Authorization: Bearer &lt;token&gt;</Text>
         </Text>
         {ingestConfigured ? (
-          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Token actif — configuré</Text>
+          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>{t('settings.tokenActive')}</Text>
         ) : (
-          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Aucun token généré</Text>
+          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>{t('settings.noToken')}</Text>
         )}
         <TouchableOpacity
           style={[s.editProfileBtn, { alignSelf: 'flex-start', marginTop: 8 }]}
@@ -300,7 +300,7 @@ export default function ProfileScreen() {
         >
           {ingestTokenLoading
             ? <ActivityIndicator size="small" color={BRAND} />
-            : <Text style={s.editProfileBtnText}>{ingestConfigured ? 'Régénérer' : 'Générer un token'}</Text>
+            : <Text style={s.editProfileBtnText}>{ingestConfigured ? t('settings.regen') : 'Générer un token'}</Text>
           }
         </TouchableOpacity>
 
@@ -310,10 +310,10 @@ export default function ProfileScreen() {
             <View style={s.tokenModalBox}>
               <View style={s.tokenModalWarning}>
                 <Feather name="alert-triangle" size={20} color="#fff" />
-                <Text style={s.tokenModalWarningText}>Copiez ce token maintenant !</Text>
+                <Text style={s.tokenModalWarningText}>{t('settings.copyNow')}</Text>
               </View>
               <Text style={s.tokenModalDesc}>
-                Ce token ne sera plus jamais affiché. Si vous le perdez, vous devrez en générer un nouveau.
+                {t('settings.tokenOnce')}
               </Text>
               <View style={s.tokenModalTokenRow}>
                 <Text style={s.tokenModalToken} selectable numberOfLines={2}>
@@ -326,14 +326,14 @@ export default function ProfileScreen() {
                 accessibilityRole="button"
               >
                 <Feather name={ingestCopied ? 'check' : 'copy'} size={16} color="#fff" />
-                <Text style={s.tokenModalCopyText}>{ingestCopied ? 'Copié !' : 'Copier le token'}</Text>
+                <Text style={s.tokenModalCopyText}>{ingestCopied ? t('settings.copied') : t('settings.copyToken')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={s.tokenModalDoneBtn}
                 onPress={() => { setShowTokenModal(false); setIngestToken(null); }}
                 accessibilityRole="button"
               >
-                <Text style={s.tokenModalDoneText}>J'ai copié mon token</Text>
+                <Text style={s.tokenModalDoneText}>{t('settings.tokenCopied')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -365,7 +365,7 @@ export default function ProfileScreen() {
               resetOnboarding();
               router.replace('/onboarding');
             }}>
-              <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>Revoir l'onboarding</Text>
+              <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>{t('settings.reviewOnboarding')}</Text>
               <Text style={s.dangerHint}>S'affichera au prochain démarrage de l'app.</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
@@ -390,7 +390,7 @@ export default function ProfileScreen() {
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
               <Text style={s.sheetTitle}>{t('settings.editProfile')}</Text>
               <Text style={[s.sectionLabel, { marginBottom: 8 }]}>{t('settings.name')}</Text>
-              <TextInput style={s.sheetInput} value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="Full name" />
+              <TextInput style={s.sheetInput} value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="Full name" maxLength={100} />
               <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={saveProfile} disabled={editProfileLoading} accessibilityRole="button" accessibilityState={{ disabled: editProfileLoading }}>
                 {editProfileLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.save')}</Text>}
               </TouchableOpacity>
@@ -406,9 +406,9 @@ export default function ProfileScreen() {
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]} accessibilityViewIsModal={true}>
               <Text style={s.sheetTitle}>{t('settings.changePasswordTitle')}</Text>
               <Text style={[s.sectionLabel, { marginBottom: 8 }]}>{t('settings.currentPassword')}</Text>
-              <TextInput style={s.sheetInput} value={pwCurrent} onChangeText={setPwCurrent} secureTextEntry autoFocus accessibilityLabel="Current password" />
+              <TextInput style={s.sheetInput} value={pwCurrent} onChangeText={setPwCurrent} secureTextEntry autoFocus accessibilityLabel="Current password" maxLength={128} />
               <Text style={[s.sectionLabel, { marginTop: 12, marginBottom: 8 }]}>{t('settings.newPassword')}</Text>
-              <TextInput style={s.sheetInput} value={pwNew} onChangeText={setPwNew} secureTextEntry accessibilityLabel="New password" />
+              <TextInput style={s.sheetInput} value={pwNew} onChangeText={setPwNew} secureTextEntry accessibilityLabel="New password" maxLength={128} />
               {pwError ? <Text style={[s.inviteError, { marginTop: 8 }]}>{pwError}</Text> : null}
               <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={changePassword} disabled={pwLoading} accessibilityRole="button" accessibilityState={{ disabled: pwLoading }}>
                 {pwLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.confirm')}</Text>}

@@ -490,6 +490,7 @@ Respond with only valid JSON, no explanation.`;
                             onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                             returnKeyType="done"
                             accessibilityLabel="New task title"
+                            maxLength={200}
                           />
                           <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
                             {sttState === 'transcribing' || isParsing
@@ -529,6 +530,7 @@ Respond with only valid JSON, no explanation.`;
                             onBlur={() => { if (!newCardTitle.trim()) setAddingInColumn(null); }}
                             returnKeyType="done"
                             accessibilityLabel="New task title"
+                            maxLength={200}
                           />
                           <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
                             {sttState === 'transcribing' || isParsing
@@ -616,6 +618,7 @@ Respond with only valid JSON, no explanation.`;
               returnKeyType="done"
               onSubmitEditing={renameColumn}
               accessibilityLabel="Column name"
+              maxLength={100}
             />
             <View style={s.modalActions}>
               <TouchableOpacity onPress={() => setRenamingCol(null)} style={s.modalCancel}>

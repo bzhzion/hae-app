@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Image, StyleSheet, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { useNotifStore } from '@/stores/notif';
 import { usePrefsStore } from '@/stores/prefs';
@@ -45,6 +46,7 @@ function LoadingDots() {
 type Phase = 'boot' | 'loading';
 
 export default function Index() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   const [authHydrated, setAuthHydrated] = useState(false);
@@ -175,7 +177,7 @@ export default function Index() {
       <Image source={require('../assets/icon-transparent.png')} style={ls.logo} resizeMode="contain" />
       {phase === 'loading' && (
         <>
-          <Text style={ls.label}>Chargement en cours</Text>
+          <Text style={ls.label}>{t('common.loadingMsg')}</Text>
           <LoadingDots />
         </>
       )}

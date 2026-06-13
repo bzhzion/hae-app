@@ -169,12 +169,12 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
           <Text style={s.fieldLabel}>{t('aiConfig.llmBaseUrl')}</Text>
           <TextInput style={s.input} value={aiBaseUrl} onChangeText={setAiBaseUrl}
             placeholder="https://api.openai.com/v1" placeholderTextColor="#A0A098"
-            autoCapitalize="none" keyboardType="url" accessibilityLabel='AI server address' />
+            autoCapitalize="none" keyboardType="url" accessibilityLabel='AI server address' maxLength={500} />
 
           <Text style={s.fieldLabel}>{t('aiConfig.apiKey')}</Text>
           <TextInput style={s.input} value={aiApiKey} onChangeText={setAiApiKey}
             placeholder="sk-..." placeholderTextColor="#A0A098"
-            autoCapitalize="none" secureTextEntry accessibilityLabel='API key' />
+            autoCapitalize="none" secureTextEntry accessibilityLabel='API key' maxLength={200} />
 
           {/* Bandeau clé API contextuel selon preset */}
           {(() => {
@@ -212,7 +212,7 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
 
           <Text style={s.fieldLabel}>{t('aiConfig.llmModel')}</Text>
           <TextInput style={s.input} value={aiModel} onChangeText={setAiModel}
-            placeholder="gpt-4o" placeholderTextColor="#A0A098" autoCapitalize="none" accessibilityLabel='AI model' />
+            placeholder="gpt-4o" placeholderTextColor="#A0A098" autoCapitalize="none" accessibilityLabel='AI model' maxLength={100} />
 
           <View style={s.sectionSep}>
             <Text style={s.sectionSepText}>{t('aiConfig.sttSection')}</Text>
@@ -222,16 +222,16 @@ export default function AiConfigSection({ api, configPath, titleKey, subtitleKey
           <Text style={s.fieldLabel}>{t('aiConfig.sttBaseUrl')}</Text>
           <TextInput style={s.input} value={sttBaseUrl} onChangeText={setSttBaseUrl}
             placeholder={t('aiConfig.sttBaseUrlPlaceholder')} placeholderTextColor="#A0A098"
-            autoCapitalize="none" keyboardType="url" accessibilityLabel='Voice server address' />
+            autoCapitalize="none" keyboardType="url" accessibilityLabel='Voice server address' maxLength={500} />
 
           <Text style={s.fieldLabel}>{t('aiConfig.sttApiKey')}</Text>
           <TextInput style={s.input} value={sttApiKey} onChangeText={setSttApiKey}
             placeholder={t('aiConfig.sttApiKeyPlaceholder')} placeholderTextColor="#A0A098"
-            autoCapitalize="none" secureTextEntry accessibilityLabel='Voice API key' />
+            autoCapitalize="none" secureTextEntry accessibilityLabel='Voice API key' maxLength={200} />
 
           <Text style={s.fieldLabel}>{t('aiConfig.sttModel')}</Text>
           <TextInput style={s.input} value={sttModel} onChangeText={setSttModel}
-            placeholder="whisper-1" placeholderTextColor="#A0A098" autoCapitalize="none" accessibilityLabel='Voice model' />
+            placeholder="whisper-1" placeholderTextColor="#A0A098" autoCapitalize="none" accessibilityLabel='Voice model' maxLength={100} />
 
           <View style={s.actions}>
             {hasConfig && (

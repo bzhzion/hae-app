@@ -148,10 +148,10 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
               <View style={s.inviteActions}>
                 <TouchableOpacity style={s.inviteAccept} onPress={() => onAcceptInvite(item)} accessibilityRole="button">
                   <Feather name="check" size={13} color="#fff" />
-                  <Text style={s.inviteAcceptText}>Accepter</Text>
+                  <Text style={s.inviteAcceptText}>{t('notifications.accept')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.inviteDecline} onPress={() => onDeclineInvite(item)} accessibilityRole="button">
-                  <Text style={s.inviteDeclineText}>Refuser</Text>
+                  <Text style={s.inviteDeclineText}>{t('notifications.decline')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -210,7 +210,7 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
                     const u = item.url!;
                     if (u.startsWith('https://') || u.startsWith('http://')) Linking.openURL(u);
                   }}>
-                    <Text style={s.itemLink}>Ouvrir</Text>
+                    <Text style={s.itemLink}>{t('notifications.open')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -315,9 +315,9 @@ export default function NotificationsScreen() {
       });
       if (res?.organisationId) router.navigate(`/(app)/organisation/${res.organisationId}` as any);
     } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Impossible d\'accepter');
+      Alert.alert(t('common.error'), e.message ?? 'Impossible d\'accepter');
     }
-  }, [api, setUnreadCount, router]);
+  }, [api, setUnreadCount, router, t]);
 
   const declineInvite = useCallback(async (notif: Notif) => {
     if (!notif.url) return;
@@ -329,9 +329,9 @@ export default function NotificationsScreen() {
         return updated;
       });
     } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Impossible de refuser');
+      Alert.alert(t('common.error'), e.message ?? 'Impossible de refuser');
     }
-  }, [api, setUnreadCount]);
+  }, [api, setUnreadCount, t]);
 
   const dismissAll = useCallback(() => {
     Alert.alert(
@@ -391,7 +391,7 @@ export default function NotificationsScreen() {
           {notifs.length > 0 && (
             <TouchableOpacity onPress={dismissAll} style={s.archiveBtn}>
               <Feather name="archive" size={14} color="#8A8A80" />
-              <Text style={s.archiveBtnText}>Tout archiver</Text>
+              <Text style={s.archiveBtnText}>{t('notifications.archiveAll')}</Text>
             </TouchableOpacity>
           )}
         </View>

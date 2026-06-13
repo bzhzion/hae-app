@@ -91,7 +91,7 @@ export default function OrgScreen() {
     const email = addEmail.trim();
     if (!email) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setAddError('Email invalide');
+      setAddError(t('common.invalidEmail'));
       return;
     }
     setAddLoading(true);
@@ -103,10 +103,10 @@ export default function OrgScreen() {
       await load();
     } catch (e: any) {
       const msg = e.message ?? '';
-      if (msg === '404' || msg.includes('not found') || msg.includes('User not found')) setAddError('Utilisateur introuvable');
-      else if (msg.includes('pending') || msg === '409') setAddError('Invitation déjà envoyée');
-      else if (msg.includes('Already member')) setAddError('Déjà membre');
-      else setAddError(msg || 'Erreur');
+      if (msg === '404' || msg.includes('not found') || msg.includes('User not found')) setAddError(t('orgs.userNotFound'));
+      else if (msg.includes('pending') || msg === '409') setAddError(t('orgs.inviteAlreadySent'));
+      else if (msg.includes('Already member')) setAddError(t('orgs.alreadyMember'));
+      else setAddError(msg || t('common.error'));
     }
     finally { setAddLoading(false); }
   };
@@ -122,11 +122,11 @@ export default function OrgScreen() {
   const removeMember = (m: OrgMember) => {
     const isSelf = m.id === me?.id;
     Alert.alert(
-      isSelf ? 'Quitter l\'org' : 'Retirer le membre',
-      isSelf ? 'Quitter cette organisation ?' : `Retirer ${m.name} ?`,
+      isSelf ? t('orgs.leaveOrg') : t('orgs.removeMember'),
+      isSelf ? t('orgs.leaveConfirm') : `Retirer ${m.name} ?`,
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: isSelf ? 'Quitter' : t('common.confirm'), style: 'destructive', onPress: async () => {
+        { text: isSelf ? t('orgs.leave') : t('common.confirm'), style: 'destructive', onPress: async () => {
           try {
             await api('DELETE', `/api/organisations/${orgId}/members/${m.id}`);
             if (isSelf) router.replace('/(app)/(tabs)/organisations');
@@ -166,11 +166,11 @@ export default function OrgScreen() {
         <ScrollView contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 32 }]}>
 
           <View style={s.sectionRow}>
-            <Text style={s.sectionLabel}>MEMBRES{org?.members.length ? ` (${org.members.length})` : ''}</Text>
+            <Text style={s.sectionLabel}>{t('orgs.members')}{org?.members.length ? ` (${org.members.length})` : ''}</Text>
             {canManage && (
               <TouchableOpacity style={s.addMemberBtn} onPress={() => { setAddEmail(''); setAddError(''); setShowAdd(true); }} accessibilityRole="button">
                 <Feather name="user-plus" size={13} color={BRAND} />
-                <Text style={s.addMemberText}>Inviter</Text>
+                <Text style={s.addMemberText}>{t('orgs.invite')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -200,7 +200,7 @@ export default function OrgScreen() {
           {canManage && (org?.pending_invitations?.length ?? 0) > 0 && (
             <>
               <View style={s.divider} />
-              <Text style={[s.sectionLabel, { marginBottom: 10 }]}>EN ATTENTE ({org!.pending_invitations!.length})</Text>
+              <Text style={[s.sectionLabel, { marginBottom: 10 }]}>{t('orgs.pending')} ({org!.pending_invitations!.length})</Text>
               {org!.pending_invitations!.map(inv => (
                 <View key={inv.id} style={[s.row, { opacity: 0.75 }]}>
                   <View style={[s.pendingAvatar]}>
@@ -260,11 +260,11 @@ export default function OrgScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowEdit(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
-              <Text style={s.sheetTitle}>MODIFIER L'ORGANISATION</Text>
-              <Text style={s.inputLabel}>NOM</Text>
+              <Text style={s.sheetTitle}>{t('orgs.editTitle')}</Text>
+              <Text style={s.inputLabel}>{t('common.nameLabel')}</Text>
               <TextInput style={s.input} value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="Org name" />
-              <Text style={[s.inputLabel, { marginTop: 12 }]}>DESCRIPTION</Text>
-              <TextInput style={s.input} value={editDesc} onChangeText={setEditDesc} placeholder="Optionnel" placeholderTextColor="#A0A098" accessibilityLabel="Org description" />
+              <Text style={[s.inputLabel, { marginTop: 12 }]}>{t('common.descriptionLabel')}</Text>
+              <TextInput style={s.input} value={editDesc} onChangeText={setEditDesc} placeholder={t('common.optional')} placeholderTextColor="#A0A098" accessibilityLabel="Org description" />
               <TouchableOpacity style={[s.saveBtn, { marginTop: 16 }]} onPress={saveEdit} disabled={editLoading} accessibilityRole="button">
                 {editLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('common.save')}</Text>}
               </TouchableOpacity>
@@ -279,24 +279,25 @@ export default function OrgScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowAdd(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
-              <Text style={s.sheetTitle}>INVITER UN MEMBRE</Text>
-              <Text style={s.inputLabel}>EMAIL</Text>
+              <Text style={s.sheetTitle}>{t('orgs.inviteTitle')}</Text>
+              <Text style={s.inputLabel}>{t('common.emailLabel')}</Text>
               <TextInput
                 style={s.input}
                 value={addEmail}
-                onChangeText={t => { setAddEmail(t); setAddError(''); }}
+                onChangeText={v => { setAddEmail(v); setAddError(''); }}
                 autoFocus
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholder="utilisateur@exemple.com"
+                placeholder={t('orgs.emailPlaceholder')}
                 placeholderTextColor="#A0A098"
                 onSubmitEditing={addMember}
                 returnKeyType="done"
                 accessibilityLabel="Member email"
+                maxLength={254}
               />
               {addError ? <Text style={s.errorText}>{addError}</Text> : null}
               <TouchableOpacity style={[s.saveBtn, { marginTop: 12 }]} onPress={addMember} disabled={addLoading} accessibilityRole="button">
-                {addLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>Ajouter</Text>}
+                {addLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>{t('orgs.add')}</Text>}
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>

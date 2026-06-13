@@ -50,7 +50,11 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const { i18n: calI18n } = useTranslation();
+  const { t: calT } = useTranslation();
+  const monthNames = Array.from({ length: 12 }, (_, i) =>
+    new Intl.DateTimeFormat(calI18n.language, { month: 'long' }).format(new Date(2000, i, 1))
+  );
   const today = new Date();
 
   const isSelected = (d: number) => selDate
@@ -110,16 +114,16 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
       <View style={[s.editRow, { marginTop: 16 }]}>
         {selDate && (
           <TouchableOpacity style={s.saveBtn} onPress={() => selDate && onChange(selDate.getTime())}>
-            <Text style={s.saveBtnText}>Confirmer</Text>
+            <Text style={s.saveBtnText}>{calT('common.confirm')}</Text>
           </TouchableOpacity>
         )}
         {value && (
           <TouchableOpacity style={s.cancelBtn} onPress={onClear}>
-            <Text style={[s.cancelBtnText, { color: BRAND }]}>Effacer</Text>
+            <Text style={[s.cancelBtnText, { color: BRAND }]}>{calT('common.clear')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-          <Text style={s.cancelBtnText}>Annuler</Text>
+          <Text style={s.cancelBtnText}>{calT('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -201,7 +205,7 @@ export default function CardDetailSheet({
     try {
       const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
       if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
-        showToast('Config IA manquante — configure dans les réglages');
+        showToast(t('cards.aiConfigMissing'));
         return;
       }
       const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\n\nCurrent description:\n${descDraft}`;
@@ -215,11 +219,11 @@ export default function CardDetailSheet({
       const improved = data.choices?.[0]?.message?.content?.trim();
       if (improved) setDescDraft(improved);
     } catch {
-      showToast('Erreur IA');
+      showToast(t('cards.aiError'));
     } finally {
       setImprovingDesc(false);
     }
-  }, [descDraft, detail, api, projectId]);
+  }, [descDraft, detail, api, projectId, t]);
 
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [creatingLabel, setCreatingLabel] = useState(false);
@@ -404,7 +408,7 @@ export default function CardDetailSheet({
     try {
       const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
       if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
-        showToast('Config IA manquante — configure dans les réglages');
+        showToast(t('cards.aiConfigMissing'));
         return;
       }
       const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ');
@@ -432,11 +436,11 @@ export default function CardDetailSheet({
         return { ...prev, checklists: newChecklists };
       });
     } catch (e: any) {
-      showToast('Erreur IA');
+      showToast(t('cards.aiError'));
     } finally {
       setGeneratingChecklist(false);
     }
-  }, [detail, card, api, projectId, onCardUpdated]);
+  }, [detail, card, api, projectId, onCardUpdated, t]);
 
   const deleteChecklist = (clId: string) => {
     Alert.alert('Supprimer', 'Supprimer cette checklist ?', [
@@ -792,6 +796,7 @@ export default function CardDetailSheet({
                 onChangeText={setTitleDraft}
                 autoFocus
                 multiline
+                maxLength={200}
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={saveTitle}>
@@ -890,6 +895,7 @@ export default function CardDetailSheet({
                   autoFocus
                   placeholder="Ajouter une description (Markdown supporté)..."
                   placeholderTextColor="#A0A098"
+                  maxLength={10000}
                 />
                 <View style={s.editRow}>
                   <TouchableOpacity style={s.saveBtn} onPress={saveDesc}>
@@ -994,6 +1000,7 @@ export default function CardDetailSheet({
                       autoFocus
                       returnKeyType="done"
                       onSubmitEditing={() => addItem(cl.id)}
+                      maxLength={500}
                     />
                     <TouchableOpacity style={s.saveSmallBtn} onPress={() => addItem(cl.id)}>
                       <Text style={s.saveSmallText}>OK</Text>
@@ -1023,6 +1030,7 @@ export default function CardDetailSheet({
                 autoFocus
                 returnKeyType="done"
                 onSubmitEditing={addChecklist}
+                maxLength={200}
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={addChecklist}>
@@ -1150,6 +1158,7 @@ export default function CardDetailSheet({
                       onChangeText={setEditCommentText}
                       multiline
                       autoFocus
+                      maxLength={10000}
                     />
                     <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
                       <TouchableOpacity onPress={() => setEditCommentId(null)}>
@@ -1174,6 +1183,7 @@ export default function CardDetailSheet({
                 placeholderTextColor="#A0A098"
                 multiline
                 accessibilityLabel="Add a comment"
+                maxLength={10000}
               />
               <TouchableOpacity
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1230,6 +1240,7 @@ export default function CardDetailSheet({
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={createLabel}
+                  maxLength={50}
                 />
                 <View style={s.colorRow}>
                   {PRESET_COLORS.map(c => (

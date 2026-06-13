@@ -53,30 +53,33 @@ export default function LoginScreen() {
   }, []);
 
   const submit = async () => {
-    if (!serverUrl || !email || !password || (mode === 'register' && !name)) {
+    const trimmedServerUrl = serverUrl.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedServerUrl || !trimmedEmail || !password || (mode === 'register' && !name)) {
       setError(t('auth.allFieldsRequired')); return;
     }
-    const isLocalhost = serverUrl.startsWith('http://localhost') || serverUrl.startsWith('http://127.0.0.1');
-    if (!serverUrl.startsWith('https://') && !isLocalhost) {
-      setError('URL doit commencer par https://'); return;
+    if (trimmedServerUrl !== serverUrl) setServerUrl(trimmedServerUrl);
+    const isLocalhost = trimmedServerUrl.startsWith('http://localhost') || trimmedServerUrl.startsWith('http://127.0.0.1');
+    if (!trimmedServerUrl.startsWith('https://') && !isLocalhost) {
+      setError(t('login.urlError')); return;
     }
     setLoading(true); setError('');
     try {
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const body = mode === 'login' ? { email, password } : { email, password, name };
-      const res = await fetch(`${serverUrl}${endpoint}`, {
+      const body = mode === 'login' ? { email: trimmedEmail, password } : { email: trimmedEmail, password, name };
+      const res = await fetch(`${trimmedServerUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const raw = await res.text();
-      if (raw.includes('<!DOCTYPE') || raw.includes('<html')) throw new Error('Serveur inaccessible');
+      if (raw.includes('<!DOCTYPE') || raw.includes('<html')) throw new Error(t('login.serverUnreachable'));
       let data: any = {};
-      try { data = JSON.parse(raw); } catch { if (!res.ok) throw new Error(raw || 'Erreur'); }
-      if (!res.ok) throw new Error(data.error ?? raw ?? 'Erreur');
+      try { data = JSON.parse(raw); } catch { if (!res.ok) throw new Error(raw || t('common.error')); }
+      if (!res.ok) throw new Error(data.error ?? raw ?? t('common.error'));
 
       if (rememberMe) {
-        await saveCreds({ serverUrl, email });
+        await saveCreds({ serverUrl: trimmedServerUrl, email: trimmedEmail });
       } else {
         await clearCreds();
       }
@@ -84,8 +87,8 @@ export default function LoginScreen() {
       setToken(data.accessToken);
       setRefreshToken(data.refreshToken ?? null);
       setUser(data.user);
-      saveToAppGroup(serverUrl, data.accessToken);
-      const prefs = await fetchPrefs(serverUrl, data.accessToken).then(() => usePrefsStore.getState().prefs);
+      saveToAppGroup(trimmedServerUrl, data.accessToken);
+      const prefs = await fetchPrefs(trimmedServerUrl, data.accessToken).then(() => usePrefsStore.getState().prefs);
       if (prefs.language) {
         await i18n.changeLanguage(prefs.language);
         await saveLanguage(prefs.language as any);
@@ -105,20 +108,20 @@ export default function LoginScreen() {
         <Text style={s.tagline}>{t('auth.tagline')}</Text>
 
         <Text style={s.label}>{t('auth.serverUrl')}</Text>
-        <TextInput style={s.input} placeholder="https://hae.exemple.com" value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" accessibilityLabel="Server URL" />
+        <TextInput style={s.input} placeholder={t('login.serverPlaceholder')} value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" accessibilityLabel="Server URL" maxLength={500} />
 
         {mode === 'register' && (
           <>
             <Text style={s.label}>{t('auth.name')}</Text>
-            <TextInput style={s.input} placeholder="Votre nom" value={name} onChangeText={setName} autoCapitalize="words" placeholderTextColor="#9CA3AF" accessibilityLabel="Your name" />
+            <TextInput style={s.input} placeholder={t('login.namePlaceholder')} value={name} onChangeText={setName} autoCapitalize="words" placeholderTextColor="#9CA3AF" accessibilityLabel="Your name" maxLength={100} />
           </>
         )}
 
         <Text style={s.label}>{t('auth.email')}</Text>
-        <TextInput style={s.input} placeholder="vous@exemple.com" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#9CA3AF" accessibilityLabel="Email address" />
+        <TextInput style={s.input} placeholder={t('login.emailPlaceholder')} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#9CA3AF" accessibilityLabel="Email address" maxLength={254} />
 
         <Text style={s.label}>{t('auth.password')}</Text>
-        <TextInput style={s.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#9CA3AF" accessibilityLabel="Password" />
+        <TextInput style={s.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#9CA3AF" accessibilityLabel="Password" maxLength={128} />
 
         {mode === 'login' && (
           <TouchableOpacity style={s.rememberRow} onPress={() => setRememberMe(v => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: rememberMe }} accessibilityLabel="Remember me">
