@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useNotifStore } from '@/stores/notif';
 
 const BRAND = '#A00000';
 const INACTIVE = '#8A8A80';
@@ -11,6 +12,27 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function TabIcon({ icon, iconActive, focused }: { icon: IoniconsName; iconActive: IoniconsName; focused: boolean }) {
   return <Ionicons name={focused ? iconActive : icon} size={22} color={focused ? BRAND : INACTIVE} />;
+}
+
+function NotifTabIcon({ focused }: { focused: boolean }) {
+  const count = useNotifStore(s => s.unreadCount);
+  return (
+    <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={22} color={focused ? BRAND : INACTIVE} />
+      {count > 0 && (
+        <View style={{
+          position: 'absolute', top: 0, right: 0,
+          minWidth: 14, height: 14, borderRadius: 7,
+          backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center',
+          paddingHorizontal: 2,
+        }}>
+          <Text style={{ fontSize: 8, fontWeight: '800', color: '#fff', lineHeight: 14 }}>
+            {count > 99 ? '99+' : count}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 function TabLabel({ label, focused }: { label: string; focused: boolean }) {
@@ -53,7 +75,7 @@ export default function TabsLayout() {
         name="notifications"
         options={{
           tabBarLabel: ({ focused }) => <TabLabel label={t('tabs.notifications')} focused={focused} />,
-          tabBarIcon: ({ focused }) => <TabIcon icon="notifications-outline" iconActive="notifications" focused={focused} />,
+          tabBarIcon: ({ focused }) => <NotifTabIcon focused={focused} />,
         }}
       />
       <Tabs.Screen
