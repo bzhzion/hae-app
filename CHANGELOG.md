@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.9] - 2026-06-13
+
+### Added
+- Notifications : swipe droite = créer une carte (titre pré-rempli, navigue vers tasks)
+- Notifications : swipe gauche = archive (migration PanResponder, feel élastique identique à kpopify)
+- Tasks : ouverture automatique de la saisie si `pendingNewCardTitle` est défini à l'arrivée
+
 ## [1.3.8] - 2026-06-13
 
 ### Added

@@ -112,7 +112,7 @@ export default function TasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token, serverUrl, logout } = useAuthStore();
-  const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, refreshKey } = useProjectStore();
+  const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, pendingNewCardTitle, setPendingNewCardTitle, refreshKey } = useProjectStore();
   const { state: sttState, toggle: sttToggle } = useStt();
 
   const handleMicPress = useCallback(async () => {
@@ -239,6 +239,15 @@ export default function TasksScreen() {
     setPendingCard(null);
     setTimeout(() => openCard(card), 300);
   }, [pendingCardId, columns]);
+
+  useEffect(() => {
+    if (!pendingNewCardTitle || columns.length === 0) return;
+    const first = columns[0];
+    if (!first) return;
+    setPendingNewCardTitle(null);
+    setNewCardTitle(pendingNewCardTitle);
+    setTimeout(() => setAddingInColumn(first.id), 100);
+  }, [pendingNewCardTitle, columns]);
 
   const goTo = (i: number) => {
     pagerRef.current?.scrollTo({ x: i * width, animated: true });

@@ -12,8 +12,10 @@ interface ProjectState {
   currentProjectOwnerId: string | null;
   columns: Column[];
   pendingCardId: string | null;
+  pendingNewCardTitle: string | null;
   refreshKey: number;
   setPendingCard: (id: string | null) => void;
+  setPendingNewCardTitle: (title: string | null) => void;
   triggerRefresh: () => void;
   setCurrentProject: (id: string, name: string, ownerType?: string, ownerId?: string) => void;
   setColumns: (columns: Column[]) => void;
@@ -29,8 +31,10 @@ export const useProjectStore = create<ProjectState>()(
       currentProjectOwnerId: null,
       columns: [],
       pendingCardId: null,
+      pendingNewCardTitle: null,
       refreshKey: 0,
       setPendingCard: (id) => set({ pendingCardId: id }),
+      setPendingNewCardTitle: (title) => set({ pendingNewCardTitle: title }),
       triggerRefresh: () => set(s => ({ refreshKey: s.refreshKey + 1 })),
       setCurrentProject: (id, name, ownerType, ownerId) => set({
         currentProjectId: id,

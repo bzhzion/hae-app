@@ -1,10 +1,8 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation, Animated, PanResponder } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -53,29 +51,33 @@ function timeAgo(ts: number, t: (k: string, opts?: any) => string): string {
   return t('notifications.daysAgo', { count: d });
 }
 
-const SwipeAction = () => (
-  <View style={s.swipeAction}>
-    <Feather name="archive" size={18} color="#fff" />
-  </View>
-);
+const SWIPE_LAYER: object = {
+  position: 'absolute',
+  left: 0, right: 0, top: 0, bottom: 0,
+  justifyContent: 'center',
+};
 
 interface NotifRowProps {
   item: Notif;
   showArchived: boolean;
   onDismiss: (id: string) => void;
   onMarkRead: (n: Notif) => void;
-  swipeRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+  onCreateCard: (item: Notif) => void;
   t: (k: string, opts?: any) => string;
 }
 
-function NotifRow({ item, showArchived, onDismiss, onMarkRead, swipeRefs, t }: NotifRowProps) {
-  const opacity = useSharedValue(1);
-  const translateX = useSharedValue(0);
+function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, t }: NotifRowProps) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateX: translateX.value }],
-  }));
+  const TRIGGER = 55;
+  const RESISTANCE = 0.65;
+  const ACTION_WIDTH = 80;
+
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+  const onCreateCardRef = useRef(onCreateCard);
+  onCreateCardRef.current = onCreateCard;
 
   const collapse = useCallback(() => {
     LayoutAnimation.configureNext({
@@ -83,67 +85,105 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, swipeRefs, t }: N
       delete: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity },
       update: { type: LayoutAnimation.Types.easeOut },
     });
-    onDismiss(item.id);
-  }, [item.id, onDismiss]);
+    onDismissRef.current(item.id);
+  }, [item.id]);
 
-  const disintegrate = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    opacity.value = withTiming(0, { duration: 220 });
-    translateX.value = withSpring(64, { damping: 14, stiffness: 180 }, (done) => {
-      if (done) runOnJS(collapse)();
-    });
-  }, [opacity, translateX, collapse]);
+  const collapseRef = useRef(collapse);
+  collapseRef.current = collapse;
+
+  const panResponder = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2,
+    onPanResponderGrant: () => { translateX.stopAnimation(); },
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, gs) => {
+      const raw = Math.abs(gs.dx) * RESISTANCE;
+      const elastic = raw <= ACTION_WIDTH
+        ? raw
+        : ACTION_WIDTH + (raw - ACTION_WIDTH) / (1 + (raw - ACTION_WIDTH) / 28);
+      translateX.setValue(gs.dx < 0 ? -elastic : elastic);
+    },
+    onPanResponderRelease: (_, gs) => {
+      const moved = Math.abs(gs.dx) * RESISTANCE;
+      if (gs.dx < 0 && (moved >= TRIGGER || gs.vx < -0.4)) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(translateX, { toValue: -400, duration: 220, useNativeDriver: true }),
+        ]).start(() => collapseRef.current());
+        return;
+      }
+      if (gs.dx > 0 && (moved >= TRIGGER || gs.vx > 0.4)) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onCreateCardRef.current(item);
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 8 }).start();
+        return;
+      }
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 8 }).start();
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+    },
+  })).current;
+
+  const archiveOp    = translateX.interpolate({ inputRange: [-TRIGGER, -20, 0], outputRange: [1, 0.4, 0], extrapolate: 'clamp' });
+  const archiveScale = translateX.interpolate({ inputRange: [-TRIGGER, -25, 0], outputRange: [1.2, 0.9, 0.5], extrapolate: 'clamp' });
+  const createOp     = translateX.interpolate({ inputRange: [0, 20, TRIGGER], outputRange: [0, 0.4, 1], extrapolate: 'clamp' });
+  const createScale  = translateX.interpolate({ inputRange: [0, 25, TRIGGER], outputRange: [0.5, 0.9, 1.2], extrapolate: 'clamp' });
 
   return (
-    <Swipeable
-      ref={ref => swipeRefs.current.set(item.id, ref)}
-      renderRightActions={() => <SwipeAction />}
-      friction={1.8}
-      rightThreshold={60}
-      overshootRight
-      overshootFriction={7}
-      onSwipeableOpen={(dir) => { if (dir === 'right') disintegrate(); }}
-    >
-      <Animated.View style={animStyle}>
-        <TouchableOpacity
-          style={[s.item, !item.is_read && s.itemUnread]}
-          accessibilityRole="button"
-          onPress={() => !showArchived && onMarkRead(item)}
-          activeOpacity={0.7}
-        >
-          <View style={s.iconWrap}>
-            <Feather name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default} size={16} color={BRAND} />
-          </View>
-          <View style={s.itemBody}>
-            <Text style={s.itemTitle} numberOfLines={2}>
-              {item.type === 'inbox_message'
-                ? (item.title ?? t('notifications.fallback'))
-                : (item.card_title ?? t('notifications.fallback'))}
-            </Text>
-            {item.type === 'inbox_message' && item.body ? (
-              <Text style={s.itemBody2} numberOfLines={3}>{item.body}</Text>
-            ) : null}
-            <View style={s.itemMeta}>
-              {item.project_name && (
-                <View style={s.projectTag}>
-                  <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
-                </View>
-              )}
-              <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
+    <Animated.View style={{ opacity }}>
+      <View style={{ overflow: 'hidden' }}>
+        <Animated.View style={[SWIPE_LAYER, { backgroundColor: BRAND, alignItems: 'flex-end', paddingRight: 24, opacity: archiveOp }]}>
+          <Animated.View style={{ transform: [{ scale: archiveScale }] }}>
+            <Feather name="archive" size={20} color="#fff" />
+          </Animated.View>
+        </Animated.View>
+        <Animated.View style={[SWIPE_LAYER, { backgroundColor: '#16a34a', alignItems: 'flex-start', paddingLeft: 24, opacity: createOp }]}>
+          <Animated.View style={{ transform: [{ scale: createScale }] }}>
+            <Feather name="plus-square" size={20} color="#fff" />
+          </Animated.View>
+        </Animated.View>
+        <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+          <TouchableOpacity
+            style={[s.item, !item.is_read && s.itemUnread]}
+            accessibilityRole="button"
+            onPress={() => !showArchived && onMarkRead(item)}
+            activeOpacity={0.7}
+          >
+            <View style={s.iconWrap}>
+              <Feather name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default} size={16} color={BRAND} />
             </View>
-            <View style={s.itemMetaRow}>
-              <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
-              {item.type === 'inbox_message' && item.url ? (
-                <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
-                  <Text style={s.itemLink}>Ouvrir</Text>
-                </TouchableOpacity>
+            <View style={s.itemBody}>
+              <Text style={s.itemTitle} numberOfLines={2}>
+                {item.type === 'inbox_message'
+                  ? (item.title ?? t('notifications.fallback'))
+                  : (item.card_title ?? t('notifications.fallback'))}
+              </Text>
+              {item.type === 'inbox_message' && item.body ? (
+                <Text style={s.itemBody2} numberOfLines={3}>{item.body}</Text>
               ) : null}
+              <View style={s.itemMeta}>
+                {item.project_name && (
+                  <View style={s.projectTag}>
+                    <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
+                  </View>
+                )}
+                <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
+              </View>
+              <View style={s.itemMetaRow}>
+                <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+                {item.type === 'inbox_message' && item.url ? (
+                  <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
+                    <Text style={s.itemLink}>Ouvrir</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             </View>
-          </View>
-          {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
-        </TouchableOpacity>
-      </Animated.View>
-    </Swipeable>
+            {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -153,13 +193,12 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { token, serverUrl } = useAuthStore();
   const { setUnreadCount, decrement } = useNotifStore();
-  const { setPendingCard, setCurrentProject } = useProjectStore();
+  const { setPendingCard, setCurrentProject, setPendingNewCardTitle } = useProjectStore();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [archived, setArchived] = useState<Notif[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
@@ -209,9 +248,14 @@ export default function NotificationsScreen() {
     } catch {}
   }, [api, setUnreadCount]);
 
+  const createCard = useCallback((notif: Notif) => {
+    const title = notif.title ?? notif.card_title ?? t('notifications.fallback');
+    setPendingNewCardTitle(title);
+    router.navigate('/(app)/(tabs)/tasks');
+  }, [setPendingNewCardTitle, router, t]);
+
   const dismiss = useCallback(async (id: string) => {
     const notif = notifs.find(x => x.id === id);
-    swipeRefs.current.get(id)?.close();
     try {
       await api('PATCH', `/api/notifications/${id}/dismiss`);
       setNotifs(prev => {
@@ -251,10 +295,10 @@ export default function NotificationsScreen() {
       showArchived={showArchived}
       onDismiss={dismiss}
       onMarkRead={markRead}
-      swipeRefs={swipeRefs}
+      onCreateCard={createCard}
       t={t}
     />
-  ), [markRead, showArchived, t, dismiss]);
+  ), [markRead, showArchived, t, dismiss, createCard]);
 
   return (
     <View style={s.container}>
@@ -345,5 +389,4 @@ const s = StyleSheet.create({
   itemLink:         { fontSize: 11, fontWeight: '700', color: BRAND },
   dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 6, flexShrink: 0 },
   sep:              { height: 1, backgroundColor: '#F5F5F0', marginLeft: 56 },
-  swipeAction:      { backgroundColor: '#A00000', width: 72, alignItems: 'center', justifyContent: 'center' },
 });
