@@ -40,11 +40,7 @@ const secureStorage = {
   },
   setItem: async (key: string, value: string) => {
     if (Platform.OS === 'web') return AsyncStorage.setItem(key, value);
-    try {
-      await SecureStore.setItemAsync(key, value);
-    } catch {
-      await AsyncStorage.setItem(key, value);
-    }
+    await SecureStore.setItemAsync(key, value);
   },
   removeItem: async (key: string) => {
     if (Platform.OS === 'web') return AsyncStorage.removeItem(key);

@@ -86,6 +86,10 @@ export default function OrgScreen() {
   const addMember = async () => {
     const email = addEmail.trim();
     if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAddError('Email invalide');
+      return;
+    }
     setAddLoading(true);
     setAddError('');
     try {
