@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.11] - 2026-06-13
+
+### Security
+- **C1** : "Se souvenir de moi" ne stocke plus le mot de passe (email + serverUrl uniquement)
+- **C3** : token JWT transféré à la Share Extension via Keychain (access group) au lieu de UserDefaults non chiffré
+- **H1** : verrou biométrique actif dès le cold start si activé ; plus de déverrouillage automatique sur appareils sans biométrie
+- **H2** : URL serveur validée (`https://` obligatoire, sauf localhost) à la connexion
+- **H4** : `Linking.openURL` valide le schéma (`https://` / `http://` uniquement) avant ouverture
+- **M2** : upload sans MIME type connu échoue proprement (au lieu du fallback `application/octet-stream` rejeté par l'API) ; nom de fichier au téléchargement sanitizé contre le path traversal
+- **M4** : messages d'erreur API remplacés par extraction du champ `error` JSON uniquement (plus de body brut)
+
 ## [1.3.10] - 2026-06-13
 
 ### Added

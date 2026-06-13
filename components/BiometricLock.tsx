@@ -14,8 +14,6 @@ export default function BiometricLock() {
   const authenticate = useCallback(async () => {
     if (authenticating.current) return;
     if (Platform.OS === 'web') { setLocked(false); return; }
-    const has = await LocalAuthentication.hasHardwareAsync();
-    if (!has) { setLocked(false); return; }
     authenticating.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({

@@ -57,7 +57,10 @@ export function makeApi(serverUrl: string, token: string) {
             });
             if (!r2.ok) {
               if (r2.status === 401) { if (!silent) showToast('Session expirée, reconnecte-toi'); throw new Error('401'); }
-              throw new Error(await r2.text());
+              const t2 = await r2.text().catch(() => '');
+              let m2 = 'Erreur serveur';
+              try { const j2 = JSON.parse(t2); if (typeof j2.error === 'string') m2 = j2.error; } catch {}
+              throw new Error(m2);
             }
             if (r2.status === 204) return null;
             return r2.json();
@@ -69,7 +72,12 @@ export function makeApi(serverUrl: string, token: string) {
           if (!silent) showToast('Accès refusé');
           throw new Error('403');
         }
-        if (!r.ok) throw new Error(await r.text());
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          let errMsg = 'Erreur serveur';
+          try { const j = JSON.parse(errText); if (typeof j.error === 'string') errMsg = j.error; } catch {}
+          throw new Error(errMsg);
+        }
         if (r.status === 204) return null;
         return r.json();
       } catch (e: any) {

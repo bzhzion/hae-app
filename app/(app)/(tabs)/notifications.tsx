@@ -206,7 +206,10 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onA
               <View style={s.itemMetaRow}>
                 <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
                 {item.type === 'inbox_message' && item.url ? (
-                  <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
+                  <TouchableOpacity onPress={() => {
+                    const u = item.url!;
+                    if (u.startsWith('https://') || u.startsWith('http://')) Linking.openURL(u);
+                  }}>
                     <Text style={s.itemLink}>Ouvrir</Text>
                   </TouchableOpacity>
                 ) : null}

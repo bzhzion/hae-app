@@ -11,7 +11,7 @@ import i18n from '@/i18n';
 
 const CREDS_KEY = 'hae-saved-creds';
 
-interface SavedCreds { serverUrl: string; email: string; password: string; }
+interface SavedCreds { serverUrl: string; email: string; }
 
 async function loadSavedCreds(): Promise<SavedCreds | null> {
   try {
@@ -48,14 +48,17 @@ export default function LoginScreen() {
     loadSavedCreds().then(c => {
       if (!c) return;
       if (c.serverUrl) setServerUrl(c.serverUrl);
-      if (c.email) setEmail(c.email);
-      if (c.password) { setPassword(c.password); setRememberMe(true); }
+      if (c.email) { setEmail(c.email); setRememberMe(true); }
     });
   }, []);
 
   const submit = async () => {
     if (!serverUrl || !email || !password || (mode === 'register' && !name)) {
       setError(t('auth.allFieldsRequired')); return;
+    }
+    const isLocalhost = serverUrl.startsWith('http://localhost') || serverUrl.startsWith('http://127.0.0.1');
+    if (!serverUrl.startsWith('https://') && !isLocalhost) {
+      setError('URL doit commencer par https://'); return;
     }
     setLoading(true); setError('');
     try {
@@ -73,7 +76,7 @@ export default function LoginScreen() {
       if (!res.ok) throw new Error(data.error ?? raw ?? 'Erreur');
 
       if (rememberMe) {
-        await saveCreds({ serverUrl, email, password });
+        await saveCreds({ serverUrl, email });
       } else {
         await clearCreds();
       }

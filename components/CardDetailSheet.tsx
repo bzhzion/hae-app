@@ -508,8 +508,13 @@ export default function CardDetailSheet({
     const asset = result.assets[0];
     setUploadingAtt(true);
     try {
+      if (!asset.mimeType) {
+        Alert.alert('Erreur', 'Type de fichier non reconnu');
+        setUploadingAtt(false);
+        return;
+      }
       const formData = new FormData();
-      formData.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType ?? 'application/octet-stream' } as any);
+      formData.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType } as any);
       const r = await fetch(`${serverUrl}/api/cards/${card.id}/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -527,7 +532,8 @@ export default function CardDetailSheet({
 
   const downloadAttachment = async (att: Attachment) => {
     const url = `${serverUrl}/api/attachments/${att.id}/download`;
-    const localUri = `${FileSystem.cacheDirectory}${att.filename}`;
+    const safeName = att.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '__');
+    const localUri = `${FileSystem.cacheDirectory}${safeName}`;
     try {
       const dl = await FileSystem.downloadAsync(url, localUri, {
         headers: { Authorization: `Bearer ${token}` },
