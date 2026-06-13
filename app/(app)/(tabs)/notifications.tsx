@@ -207,7 +207,7 @@ export default function NotificationsScreen() {
         {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
       </TouchableOpacity>
     </Swipeable>
-  ), [markRead, renderSwipeRight, showArchived, t]);
+  ), [markRead, renderSwipeRight, showArchived, t, dismiss]);
 
   return (
     <View style={s.container}>
