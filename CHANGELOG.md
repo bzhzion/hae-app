@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.28] - 2026-06-13
+
+### Fixed
+- i18n complet : toutes les strings hardcodées remplacées par `t()` (login, notifications, settings, organisations, biométrie, cards)
+- Nouvelles clés ajoutées dans fr.ts, en.ts, ko.ts : sections `common`, `login`, `biometric`, `cards`, `orgs`, `settings`, `notifications`
+- Clé `projectSettings.role` ajoutée dans les 3 langues
+- Sanitization : `maxLength` sur tous les `TextInput` (title 200, description 10000, comment 10000, label 50, password 128, name 100, url 500)
+- `trim()` sur email et serverUrl avant envoi dans login.tsx
+
 ## [1.3.27] - 2026-06-13
 
 ### Fixed
