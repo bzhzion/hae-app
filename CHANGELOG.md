@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.12] - 2026-06-13
+
+### Added
+- **Silent re-login au démarrage** : si le refreshToken est valide (30 jours), l'app se reconnecte automatiquement sans écran de login
+
 ## [1.3.11] - 2026-06-13
 
 ### Security
