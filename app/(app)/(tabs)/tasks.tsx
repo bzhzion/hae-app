@@ -607,7 +607,7 @@ Respond with only valid JSON, no explanation.`;
                   onPressIn={() => { micActiveRef.current = true; }}
                   onPress={handleMicPress}
                   disabled={!micEnabled || isParsing}
-                  accessibilityLabel="Dicter"
+                  accessibilityLabel={t('tasks.dictate')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   {sttState === 'transcribing' || isParsing
@@ -619,7 +619,7 @@ Respond with only valid JSON, no explanation.`;
                   style={s.addCancelBtn}
                   onPress={closeAddModal}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel="Annuler"
+                  accessibilityLabel={t('common.cancel')}
                 >
                   <Feather name="x" size={16} color="#8A8A80" />
                 </TouchableOpacity>
@@ -627,7 +627,7 @@ Respond with only valid JSON, no explanation.`;
                   style={[s.addConfirmBtn, !newCardTitle.trim() && s.addConfirmBtnDisabled]}
                   onPress={() => modalColumnId && createCard(modalColumnId)}
                   disabled={!newCardTitle.trim() || !modalColumnId}
-                  accessibilityLabel="Créer"
+                  accessibilityLabel={t('common.create')}
                 >
                   <Feather name="check" size={18} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
                 </TouchableOpacity>

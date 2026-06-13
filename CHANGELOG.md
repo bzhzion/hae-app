@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.36] - 2026-06-13
+
+### Fixed
+- Modal création carte : accessibilityLabels traduits (`tasks.dictate`, `common.cancel`, `common.create`)
+- Ajout clé `tasks.dictate` en FR/EN/KO
+
 ## [1.3.35] - 2026-06-13
 
 ### Changed
