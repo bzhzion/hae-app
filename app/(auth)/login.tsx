@@ -10,6 +10,7 @@ import { saveLanguage } from '@/i18n';
 import i18n from '@/i18n';
 
 const CREDS_KEY = 'hae-saved-creds';
+const FIXED_SERVER = Platform.OS === 'web' ? (process.env.EXPO_PUBLIC_SERVER_URL ?? '') : '';
 
 interface SavedCreds { serverUrl: string; email: string; }
 
@@ -45,6 +46,10 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (FIXED_SERVER) {
+      setServerUrl(FIXED_SERVER);
+      return;
+    }
     loadSavedCreds().then(c => {
       if (!c) return;
       if (c.serverUrl) setServerUrl(c.serverUrl);
@@ -107,8 +112,10 @@ export default function LoginScreen() {
         <Image source={require('../../assets/icon-transparent.png')} style={s.logo} resizeMode="contain" accessible={false} />
         <Text style={s.tagline}>{t('auth.tagline')}</Text>
 
-        <Text style={s.label}>{t('auth.serverUrl')}</Text>
-        <TextInput style={s.input} placeholder={t('login.serverPlaceholder')} value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" accessibilityLabel="Server URL" maxLength={500} />
+        {!FIXED_SERVER && <>
+          <Text style={s.label}>{t('auth.serverUrl')}</Text>
+          <TextInput style={s.input} placeholder={t('login.serverPlaceholder')} value={serverUrl} onChangeText={setServerUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor="#9CA3AF" accessibilityLabel="Server URL" maxLength={500} />
+        </>}
 
         {mode === 'register' && (
           <>

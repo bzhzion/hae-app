@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.46] - 2026-06-14
+
+### Added
+- `EXPO_PUBLIC_SERVER_URL` : variable d'env baked au build Docker web — si définie, champ URL serveur masqué à la connexion et valeur pré-remplie automatiquement (l'app web est verrouillée sur un seul serveur)
+- `Dockerfile.web` : `ARG SERVER_URL` + `ENV EXPO_PUBLIC_SERVER_URL=$SERVER_URL` — usage : `docker build --build-arg SERVER_URL=https://ton-serveur.com ...`
+
 ## [1.3.45] - 2026-06-14
 
 ### Fixed
