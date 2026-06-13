@@ -47,7 +47,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "postinstall": "node scripts/fix-gesture-handler.js"
+    "postinstall": "node scripts/fix-gesture-handler.js && node scripts/fix-expo-modules-core.js"
   },
   "private": true
 }
