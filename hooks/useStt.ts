@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { Platform } from 'react-native';
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
 import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
@@ -16,15 +17,21 @@ export function useStt() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const start = useCallback(async () => {
-    const perm = await AudioModule.requestRecordingPermissionsAsync();
-    if (!perm.granted) {
-      showToast('Permission micro refusée');
-      return;
+    try {
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        showToast('Permission micro refusée');
+        return;
+      }
+      if (Platform.OS !== 'web') {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      }
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
+      setState('recording');
+    } catch (e: any) {
+      showToast('Erreur STT');
     }
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-    await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
-    recorder.record();
-    setState('recording');
   }, [recorder]);
 
   const stopAndTranscribe = useCallback(async (): Promise<string | null> => {
@@ -55,7 +62,13 @@ export function useStt() {
 
       const lang = i18n.language ?? 'fr';
       const form = new FormData();
-      form.append('file', { uri, type: 'audio/m4a', name: 'rec.m4a' } as any);
+      if (Platform.OS === 'web') {
+        const blobResp = await fetch(uri);
+        const blob = await blobResp.blob();
+        form.append('file', blob, 'rec.webm');
+      } else {
+        form.append('file', { uri, type: 'audio/m4a', name: 'rec.m4a' } as any);
+      }
       form.append('model', model);
       form.append('language', lang);
 

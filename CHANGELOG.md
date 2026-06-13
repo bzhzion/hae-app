@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.42] - 2026-06-14
+
+### Fixed
+- STT web : FormData utilisait `{ uri, type, name }` (syntax React Native), invalide sur web — remplacé par `fetch(uri)` → Blob pour les plateformes web
+- STT : ajout try/catch dans `start()` pour éviter les exceptions non catchées
+- STT : `setAudioModeAsync` skippé sur web (`playsInSilentMode` est iOS-only)
+
 ## [1.3.41] - 2026-06-14
 
 ### Fixed
