@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.34] - 2026-06-13
+
+### Fixed
+- Mic button : `onPressIn` met `micActiveRef=true` avant que le TextInput perde le focus — le form ne se ferme plus au clic mic
+- Auto-grow input : suppression de `onContentSizeChange`/height calculée, utilisation de `minHeight` + `scrollEnabled={false}` — croissance naturelle iOS
+
 ## [1.3.33] - 2026-06-13
 
 ### Changed
