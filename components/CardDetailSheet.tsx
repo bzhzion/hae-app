@@ -930,10 +930,10 @@ export default function CardDetailSheet({
               </TouchableOpacity>
             </View>
             <View style={s.membersStack}>
-              {(detail?.members ?? []).map((m, i) => (
+              {(detail?.members ?? []).map((m) => (
                 <TouchableOpacity
                   key={m.id}
-                  style={[s.memberChip, { marginLeft: i === 0 ? 0 : -8, zIndex: 10 - i }]}
+                  style={s.memberChip}
                   onPress={() => toggleMember(m)}
                   accessibilityLabel={'Remove ' + m.name}
                   accessibilityRole="button"
@@ -1504,8 +1504,8 @@ const s = StyleSheet.create({
   sectionPlus:      { fontSize: 20, color: BRAND, lineHeight: 22, fontWeight: '300' },
 
   membersRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  membersStack:     { flexDirection: 'row', alignItems: 'center' },
-  memberChip:       { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND + '18', borderWidth: 2, borderColor: '#FAFAF8', alignItems: 'center', justifyContent: 'center' },
+  membersStack:     { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  memberChip:       { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
   memberChipText:   { fontSize: 10, fontWeight: '700', color: BRAND },
   avatar:           { width: 36, height: 36, borderRadius: 18, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText:       { fontSize: 12, fontWeight: '700', color: BRAND },
