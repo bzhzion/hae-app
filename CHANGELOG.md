@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.8] - 2026-06-13
+
+### Added
+- Notifications : animation "désintégration" au swipe archive (fade opacity + slide + collapse hauteur)
+- Notifications : swipe élastique résistant en fin de course (`friction=1.8`, `overshootFriction=7`)
+
 ## [1.3.7] - 2026-06-13
 
 ### Added
@@ -8,6 +14,10 @@
 - Notifications : affichage `inbox_message` avec titre, corps, bouton "Ouvrir" si URL présente
 - Notifications : swipe gauche auto-archive au relâchement (plus besoin de taper le bouton rouge)
 - Notifications : retour haptique `NotificationFeedbackType.Success` à l'archivage par swipe
+- Notifications : badge rouge avec compteur non lus sur l'onglet notifications
+- Notifications : refresh du badge à chaque lecture/archivage
+- Notifications : auto-refresh silencieux du JWT expiré (retry transparent sans forcer re-login)
+- Notifications : suppression du compteur archives sur le bouton "Archives"
 
 ## [1.3.6] - 2026-06-12
 

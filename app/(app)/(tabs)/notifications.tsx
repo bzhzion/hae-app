@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { makeApi } from '@/lib/api';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, RefreshControl, Alert, Linking, LayoutAnimation } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -50,6 +51,100 @@ function timeAgo(ts: number, t: (k: string, opts?: any) => string): string {
   if (h < 24) return t('notifications.hoursAgo', { count: h });
   const d = Math.floor(h / 24);
   return t('notifications.daysAgo', { count: d });
+}
+
+const SwipeAction = () => (
+  <View style={s.swipeAction}>
+    <Feather name="archive" size={18} color="#fff" />
+  </View>
+);
+
+interface NotifRowProps {
+  item: Notif;
+  showArchived: boolean;
+  onDismiss: (id: string) => void;
+  onMarkRead: (n: Notif) => void;
+  swipeRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+  t: (k: string, opts?: any) => string;
+}
+
+function NotifRow({ item, showArchived, onDismiss, onMarkRead, swipeRefs, t }: NotifRowProps) {
+  const opacity = useSharedValue(1);
+  const translateX = useSharedValue(0);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const collapse = useCallback(() => {
+    LayoutAnimation.configureNext({
+      duration: 200,
+      delete: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity },
+      update: { type: LayoutAnimation.Types.easeOut },
+    });
+    onDismiss(item.id);
+  }, [item.id, onDismiss]);
+
+  const disintegrate = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    opacity.value = withTiming(0, { duration: 220 });
+    translateX.value = withSpring(64, { damping: 14, stiffness: 180 }, (done) => {
+      if (done) runOnJS(collapse)();
+    });
+  }, [opacity, translateX, collapse]);
+
+  return (
+    <Swipeable
+      ref={ref => swipeRefs.current.set(item.id, ref)}
+      renderRightActions={() => <SwipeAction />}
+      friction={1.8}
+      rightThreshold={60}
+      overshootRight
+      overshootFriction={7}
+      onSwipeableOpen={(dir) => { if (dir === 'right') disintegrate(); }}
+    >
+      <Animated.View style={animStyle}>
+        <TouchableOpacity
+          style={[s.item, !item.is_read && s.itemUnread]}
+          accessibilityRole="button"
+          onPress={() => !showArchived && onMarkRead(item)}
+          activeOpacity={0.7}
+        >
+          <View style={s.iconWrap}>
+            <Feather name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default} size={16} color={BRAND} />
+          </View>
+          <View style={s.itemBody}>
+            <Text style={s.itemTitle} numberOfLines={2}>
+              {item.type === 'inbox_message'
+                ? (item.title ?? t('notifications.fallback'))
+                : (item.card_title ?? t('notifications.fallback'))}
+            </Text>
+            {item.type === 'inbox_message' && item.body ? (
+              <Text style={s.itemBody2} numberOfLines={3}>{item.body}</Text>
+            ) : null}
+            <View style={s.itemMeta}>
+              {item.project_name && (
+                <View style={s.projectTag}>
+                  <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
+                </View>
+              )}
+              <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
+            </View>
+            <View style={s.itemMetaRow}>
+              <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+              {item.type === 'inbox_message' && item.url ? (
+                <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
+                  <Text style={s.itemLink}>Ouvrir</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+          {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
+        </TouchableOpacity>
+      </Animated.View>
+    </Swipeable>
+  );
 }
 
 export default function NotificationsScreen() {
@@ -149,65 +244,17 @@ export default function NotificationsScreen() {
   const unread = notifs.filter(n => !n.is_read).length;
   const displayList = showArchived ? archived : notifs;
 
-  const renderSwipeRight = useCallback(() => (
-    <View style={s.swipeAction}>
-      <Feather name="archive" size={18} color="#fff" />
-    </View>
-  ), []);
-
   const renderItem = useCallback(({ item }: { item: Notif }) => (
-    <Swipeable
-      ref={ref => swipeRefs.current.set(item.id, ref)}
-      renderRightActions={renderSwipeRight}
-      overshootRight={false}
-      friction={2}
-      rightThreshold={72}
-      onSwipeableOpen={(direction) => {
-        if (direction === 'right') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          dismiss(item.id);
-        }
-      }}
-    >
-      <TouchableOpacity
-        style={[s.item, !item.is_read && s.itemUnread]}
-        accessibilityRole="button"
-        onPress={() => !showArchived && markRead(item)}
-        activeOpacity={0.7}
-      >
-        <View style={s.iconWrap}>
-          <Feather name={TYPE_ICONS[item.type] ?? TYPE_ICONS.default} size={16} color={BRAND} />
-        </View>
-        <View style={s.itemBody}>
-          <Text style={s.itemTitle} numberOfLines={2}>
-            {item.type === 'inbox_message'
-              ? (item.title ?? t('notifications.fallback'))
-              : (item.card_title ?? t('notifications.fallback'))}
-          </Text>
-          {item.type === 'inbox_message' && item.body ? (
-            <Text style={s.itemBody2} numberOfLines={3}>{item.body}</Text>
-          ) : null}
-          <View style={s.itemMeta}>
-            {item.project_name && (
-              <View style={s.projectTag}>
-                <Text style={s.projectTagText} numberOfLines={1}>{item.project_name}</Text>
-              </View>
-            )}
-            <Text style={s.itemType}>{item.type.replace(/_/g, ' ')}</Text>
-          </View>
-          <View style={s.itemMetaRow}>
-            <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
-            {item.type === 'inbox_message' && item.url ? (
-              <TouchableOpacity onPress={() => Linking.openURL(item.url!)}>
-                <Text style={s.itemLink}>Ouvrir</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-        {!item.is_read && !showArchived && <View style={s.dot} accessible={false} />}
-      </TouchableOpacity>
-    </Swipeable>
-  ), [markRead, renderSwipeRight, showArchived, t, dismiss]);
+    <NotifRow
+      key={item.id}
+      item={item}
+      showArchived={showArchived}
+      onDismiss={dismiss}
+      onMarkRead={markRead}
+      swipeRefs={swipeRefs}
+      t={t}
+    />
+  ), [markRead, showArchived, t, dismiss]);
 
   return (
     <View style={s.container}>
