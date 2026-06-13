@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.49] - 2026-06-14
+
+### Changed
+- CardDetailSheet : input commentaire restructuré (mic à gauche, send arrow-up à l'intérieur à droite, pas de submit sur Enter)
+- CardDetailSheet : icône IA labels unifiée en `color-wand-outline` (cohérent avec checklist)
+- CardDetailSheet : `+ Checklist` et `+ Element` en pilules bordées (height 28, pill radius)
+- CardDetailSheet : section membres remplacée par petits ronds empilés qui se chevauchent (30px, overlap -8)
+
 ## [1.3.48] - 2026-06-14
 
 ### Fixed

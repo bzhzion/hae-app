@@ -869,7 +869,7 @@ export default function CardDetailSheet({
             >
               {suggestingLabels
                 ? <ActivityIndicator size="small" color={BRAND} />
-                : <Ionicons name="sparkles-outline" size={16} color={BRAND} />}
+                : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
             </TouchableOpacity>
           </View>
 
@@ -929,10 +929,16 @@ export default function CardDetailSheet({
                 <Text style={s.sectionPlus}>+</Text>
               </TouchableOpacity>
             </View>
-            <View style={s.membersRow}>
-              {(detail?.members ?? []).map(m => (
-                <TouchableOpacity key={m.id} style={s.avatar} onPress={() => toggleMember(m)} accessibilityLabel={'Remove ' + m.name} accessibilityRole="button">
-                  <Text style={s.avatarText}>{m.name.slice(0, 2).toUpperCase()}</Text>
+            <View style={s.membersStack}>
+              {(detail?.members ?? []).map((m, i) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[s.memberChip, { marginLeft: i === 0 ? 0 : -8, zIndex: 10 - i }]}
+                  onPress={() => toggleMember(m)}
+                  accessibilityLabel={'Remove ' + m.name}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.memberChipText}>{m.name.slice(0, 2).toUpperCase()}</Text>
                 </TouchableOpacity>
               ))}
               {(detail?.members ?? []).length === 0 && (
@@ -1096,8 +1102,8 @@ export default function CardDetailSheet({
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity style={s.addSubBtn} onPress={() => { setAddingItemFor(cl.id); setNewItemText(''); }}>
-                    <Text style={s.addSubBtnText}>+ Element</Text>
+                  <TouchableOpacity style={s.addPill} onPress={() => { setAddingItemFor(cl.id); setNewItemText(''); }}>
+                    <Text style={s.addPillText}>+ Element</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1129,8 +1135,8 @@ export default function CardDetailSheet({
             </View>
           ) : (
             <View style={[s.section, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-              <TouchableOpacity style={s.addSubBtn} onPress={() => setAddingChecklist(true)}>
-                <Text style={s.addSubBtnText}>+ Checklist</Text>
+              <TouchableOpacity style={s.addPill} onPress={() => setAddingChecklist(true)}>
+                <Text style={s.addPillText}>+ Checklist</Text>
               </TouchableOpacity>
               <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (generatingChecklist || !aiReady) && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist || !aiReady} accessibilityLabel="Générer checklist avec IA">
                 {generatingChecklist
@@ -1261,16 +1267,6 @@ export default function CardDetailSheet({
               </View>
             ))}
             <View style={s.commentInputRow}>
-              <TextInput
-                style={s.commentInput}
-                value={newComment}
-                onChangeText={setNewComment}
-                placeholder="Ajouter un commentaire..."
-                placeholderTextColor="#A0A098"
-                multiline
-                accessibilityLabel="Add a comment"
-                maxLength={10000}
-              />
               <TouchableOpacity
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]}
@@ -1282,18 +1278,31 @@ export default function CardDetailSheet({
                   ? <ActivityIndicator size="small" color={BRAND} />
                   : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : (!sttReady ? '#C8C8C0' : BRAND)} />}
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
-                onPress={postComment}
-                disabled={!newComment.trim() || sendingComment}
-                accessibilityLabel="Send comment"
-                accessibilityRole="button"
-                accessibilityState={{ disabled: !newComment.trim() || sendingComment }}
-              >
-                {sendingComment
-                  ? <ActivityIndicator color="#fff" size="small" accessibilityLabel="Sending" />
-                  : <Text style={s.sendBtnText}>^</Text>}
-              </TouchableOpacity>
+              <View style={s.commentInputWrap}>
+                <TextInput
+                  style={s.commentInput}
+                  value={newComment}
+                  onChangeText={setNewComment}
+                  placeholder="Ajouter un commentaire..."
+                  placeholderTextColor="#A0A098"
+                  multiline
+                  blurOnSubmit={false}
+                  accessibilityLabel="Add a comment"
+                  maxLength={10000}
+                />
+                <TouchableOpacity
+                  style={[s.sendBtnInner, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
+                  onPress={postComment}
+                  disabled={!newComment.trim() || sendingComment}
+                  accessibilityLabel="Send comment"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !newComment.trim() || sendingComment }}
+                >
+                  {sendingComment
+                    ? <ActivityIndicator color={BRAND} size="small" accessibilityLabel="Sending" />
+                    : <Ionicons name="arrow-up-circle" size={26} color={newComment.trim() ? BRAND : '#C8C8C0'} />}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -1495,6 +1504,9 @@ const s = StyleSheet.create({
   sectionPlus:      { fontSize: 20, color: BRAND, lineHeight: 22, fontWeight: '300' },
 
   membersRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  membersStack:     { flexDirection: 'row', alignItems: 'center' },
+  memberChip:       { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND + '18', borderWidth: 2, borderColor: '#FAFAF8', alignItems: 'center', justifyContent: 'center' },
+  memberChipText:   { fontSize: 10, fontWeight: '700', color: BRAND },
   avatar:           { width: 36, height: 36, borderRadius: 18, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText:       { fontSize: 12, fontWeight: '700', color: BRAND },
   dimText:          { fontSize: 13, color: '#8A8A80', fontStyle: 'italic' },
@@ -1522,6 +1534,8 @@ const s = StyleSheet.create({
   saveSmallText:    { color: '#fff', fontSize: 12, fontWeight: '700' },
   addSubBtn:        { marginTop: 10, alignSelf: 'flex-start' },
   addSubBtnText:    { fontSize: 13, fontWeight: '600', color: BRAND, letterSpacing: 0.2 },
+  addPill:          { height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND + '55', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  addPillText:      { fontSize: 12, fontWeight: '600', color: BRAND },
   addClInput:       { fontSize: 15, color: '#1A1A1A', borderBottomWidth: 1.5, borderBottomColor: BRAND, paddingVertical: 8, marginBottom: 4 },
 
   attImageWrap:     { marginBottom: 12, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F0F0EC' },
@@ -1539,7 +1553,9 @@ const s = StyleSheet.create({
   commentDate:      { fontSize: 11, color: '#6B6B63' },
   commentText:      { fontSize: 14, color: '#2A2A24', lineHeight: 20 },
   commentInputRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
-  commentInput:     { flex: 1, fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, padding: 12, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
+  commentInputWrap: { flex: 1, position: 'relative' },
+  commentInput:     { fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, paddingTop: 10, paddingBottom: 10, paddingLeft: 12, paddingRight: 42, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
+  sendBtnInner:     { position: 'absolute', right: 6, bottom: 6, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   sendBtn:          { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   sendBtnOff:       { opacity: 0.35 },
   sendBtnText:      { color: '#fff', fontSize: 18, fontWeight: '700', lineHeight: 22 },
