@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.33] - 2026-06-13
+
+### Changed
+- Champ création rapide de carte : multiline auto-extensible (jusqu'à ~6 lignes), bordure complète, bouton check pour valider, mic + check + x en colonne à droite
+
 ## [1.3.32] - 2026-06-13
 
 ### Fixed

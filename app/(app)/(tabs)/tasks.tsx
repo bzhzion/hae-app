@@ -111,6 +111,7 @@ export default function TasksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [addingInColumn, setAddingInColumn] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
+  const [inputHeight, setInputHeight] = useState(40);
   const [renamingCol, setRenamingCol] = useState<Column | null>(null);
   const [renameText, setRenameText] = useState('');
   const [activeCard, setActiveCard] = useState<Card | null>(null);
@@ -292,6 +293,7 @@ Respond with only valid JSON, no explanation.`;
     Keyboard.dismiss();
     setAddingInColumn(null);
     setNewCardTitle('');
+    setInputHeight(40);
     try {
       const res = await fetch(`${serverUrl}/api/columns/${col.id}/cards`, {
         method: 'POST',
@@ -484,25 +486,30 @@ Respond with only valid JSON, no explanation.`;
                         <View style={s.quickRow}>
                           <TextInput
                             autoFocus
-                            style={[s.quickInput, { flex: 1 }]}
+                            multiline
+                            style={[s.quickInput, { flex: 1, height: Math.max(40, inputHeight) }]}
                             placeholder={t('tasks.newTask')}
                             placeholderTextColor="#A0A098"
                             value={newCardTitle}
                             onChangeText={setNewCardTitle}
-                            onSubmitEditing={() => createCard(col.id)}
-                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
-                            returnKeyType="done"
+                            onContentSizeChange={e => setInputHeight(Math.min(e.nativeEvent.contentSize.height, 160))}
+                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) { setAddingInColumn(null); setInputHeight(40); } }}
                             accessibilityLabel="New task title"
-                            maxLength={200}
+                            maxLength={500}
                           />
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
-                            {sttState === 'transcribing' || isParsing
-                              ? <ActivityIndicator size="small" color={BRAND} />
-                              : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
-                          </TouchableOpacity>
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
-                            <Feather name="x" size={12} color="#8A8A80" />
-                          </TouchableOpacity>
+                          <View style={s.quickBtns}>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
+                              {sttState === 'transcribing' || isParsing
+                                ? <ActivityIndicator size="small" color={BRAND} />
+                                : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.confirmBtn, !newCardTitle.trim() && s.confirmBtnDisabled]} onPress={() => createCard(col.id)} disabled={!newCardTitle.trim()} accessibilityLabel="Créer">
+                              <Feather name="check" size={14} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); setInputHeight(40); }} accessibilityLabel="Annuler">
+                              <Feather name="x" size={12} color="#8A8A80" />
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
                     ) : (
@@ -524,25 +531,30 @@ Respond with only valid JSON, no explanation.`;
                         <View style={s.quickRow}>
                           <TextInput
                             autoFocus
-                            style={[s.quickInput, { flex: 1 }]}
+                            multiline
+                            style={[s.quickInput, { flex: 1, height: Math.max(40, inputHeight) }]}
                             placeholder={t('tasks.newTask')}
                             placeholderTextColor="#A0A098"
                             value={newCardTitle}
                             onChangeText={setNewCardTitle}
-                            onSubmitEditing={() => createCard(col.id)}
-                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
-                            returnKeyType="done"
+                            onContentSizeChange={e => setInputHeight(Math.min(e.nativeEvent.contentSize.height, 160))}
+                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) { setAddingInColumn(null); setInputHeight(40); } }}
                             accessibilityLabel="New task title"
-                            maxLength={200}
+                            maxLength={500}
                           />
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
-                            {sttState === 'transcribing' || isParsing
-                              ? <ActivityIndicator size="small" color={BRAND} />
-                              : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
-                          </TouchableOpacity>
-                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
-                            <Feather name="x" size={12} color="#8A8A80" />
-                          </TouchableOpacity>
+                          <View style={s.quickBtns}>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
+                              {sttState === 'transcribing' || isParsing
+                                ? <ActivityIndicator size="small" color={BRAND} />
+                                : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.confirmBtn, !newCardTitle.trim() && s.confirmBtnDisabled]} onPress={() => createCard(col.id)} disabled={!newCardTitle.trim()} accessibilityLabel="Créer">
+                              <Feather name="check" size={14} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); setInputHeight(40); }} accessibilityLabel="Annuler">
+                              <Feather name="x" size={12} color="#8A8A80" />
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
                     ) : null}
@@ -688,12 +700,15 @@ const s = StyleSheet.create({
   modalCancelText:{ fontSize: 14, color: '#6B6B63', fontWeight: '500' },
   modalConfirm:   { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   modalConfirmText:{ fontSize: 14, color: '#fff', fontWeight: '700' },
-  quickAdd:       { paddingHorizontal: 4, paddingVertical: 8 },
-  quickRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  quickInput:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 8 },
-  micBtn:         { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  micBtnActive:   { backgroundColor: BRAND },
-  micBtnDisabled: { borderColor: '#C8C8C0', opacity: 0.4 },
+  quickAdd:        { paddingHorizontal: 4, paddingVertical: 8 },
+  quickRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  quickInput:      { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderWidth: 1, borderColor: BRAND, borderRadius: 8, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 10, textAlignVertical: 'top' },
+  quickBtns:       { flexDirection: 'column', alignItems: 'center', gap: 6, paddingBottom: 2 },
+  micBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  micBtnActive:    { backgroundColor: BRAND },
+  micBtnDisabled:  { borderColor: '#C8C8C0', opacity: 0.4 },
+  confirmBtn:      { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  confirmBtnDisabled: { backgroundColor: '#E8E8E4' },
 
   annOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', padding: 16 },
   annBox:       { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', maxHeight: '75%' },
