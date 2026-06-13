@@ -1,12 +1,11 @@
-import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Dimensions, Image, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useOnboardingStore } from '@/stores/onboarding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-const { width } = Dimensions.get('window');
 const BRAND = '#A00000';
 
 type SlideType = 'text' | 'steps' | 'columns';
@@ -74,7 +73,6 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const markDone = useOnboardingStore(s => s.markDone);
   const [index, setIndex] = useState(0);
-  const listRef = useRef<FlatList>(null);
   const { t } = useTranslation();
 
   const finish = () => {
@@ -82,10 +80,7 @@ export default function OnboardingScreen() {
     router.replace('/(auth)/login');
   };
 
-  const goTo = (i: number) => {
-    listRef.current?.scrollToIndex({ index: i, animated: true });
-    setIndex(i);
-  };
+  const goTo = (i: number) => setIndex(i);
 
   const slide = SLIDES[index];
 
@@ -95,42 +90,30 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>{t('onboarding.skip')}</Text>
       </TouchableOpacity>
 
-      <FlatList
-        ref={listRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        keyExtractor={item => item.key}
+      <ScrollView
         style={s.list}
-        renderItem={({ item }) => (
-          <ScrollView
-            style={{ width }}
-            contentContainerStyle={[
-              s.slideContent,
-              { paddingTop: insets.top + 56, paddingBottom: 24 },
-            ]}
-            showsVerticalScrollIndicator={false}
-          >
-            <Image
-              source={require('../assets/icon-transparent.png')}
-              style={s.logo}
-              resizeMode="contain"
-            />
-            <View style={[s.iconWrap, { backgroundColor: item.accent }]}>
-              <Feather name={item.icon} size={56} color={item.iconColor} />
-            </View>
-            <Text style={s.title}>{t(`onboarding.${item.key}.title`)}</Text>
+        contentContainerStyle={[
+          s.slideContent,
+          { paddingTop: insets.top + 56, paddingBottom: 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Image
+          source={require('../assets/icon-transparent.png')}
+          style={s.logo}
+          resizeMode="contain"
+        />
+        <View style={[s.iconWrap, { backgroundColor: slide.accent }]}>
+          <Feather name={slide.icon} size={56} color={slide.iconColor} />
+        </View>
+        <Text style={s.title}>{t(`onboarding.${slide.key}.title`)}</Text>
 
-            {item.type === 'text' && (
-              <Text style={s.body}>{t(`onboarding.${item.key}.body`)}</Text>
-            )}
-            {item.type === 'steps' && <StepsContent t={t} />}
-            {item.type === 'columns' && <ColumnsContent t={t} />}
-          </ScrollView>
+        {slide.type === 'text' && (
+          <Text style={s.body}>{t(`onboarding.${slide.key}.body`)}</Text>
         )}
-      />
+        {slide.type === 'steps' && <StepsContent t={t} />}
+        {slide.type === 'columns' && <ColumnsContent t={t} />}
+      </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 20 }]}>
         <View style={s.pagination}>

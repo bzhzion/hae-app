@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.44] - 2026-06-14
+
+### Fixed
+- Onboarding web : navigation suivant/précédent cassée (FlatList.scrollToIndex ne fonctionne pas sur web) — remplacé par rendu direct du slide courant via ScrollView
+
 ## [1.3.43] - 2026-06-14
 
 ### Fixed
