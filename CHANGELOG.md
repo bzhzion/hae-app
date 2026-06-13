@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.13] - 2026-06-13
+
+### Added
+- **Loading screen au démarrage** : après auth, preload en parallèle (profil, notifs, prefs, langue, annonces) avant d'afficher l'app
+- **Système d'annonces** : lecture d'un fichier JSON public (`public/announcements.json`) au démarrage — les annonces non vues sont affichées en modal avant l'accès à l'app
+- **Onboarding** : carousel 4 slides au premier lancement (méthode GTD, kanban, équipe, IA). Bouton "Revoir l'onboarding" dans Paramètres > Zone dangereuse.
+- Réinitialisation complète (reset app) remet aussi l'onboarding à zéro
+
 ## [1.3.12] - 2026-06-13
 
 ### Added

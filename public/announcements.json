@@ -1,0 +1,13 @@
+{
+  "announcements": [
+    {
+      "id": "2026-06-13-v1-3",
+      "title": "Hae v1.3 — Invitations, IA & Sécurité",
+      "body": "Invitez vos collaborateurs par email, utilisez l'IA pour parser vos tâches, et bénéficiez d'un audit de sécurité complet.",
+      "type": "update",
+      "date": "2026-06-13",
+      "cta_label": "Voir le changelog",
+      "cta_url": "https://github.com/bzhzion/hae-app/releases"
+    }
+  ]
+}

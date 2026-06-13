@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
+import { useOnboardingStore } from '@/stores/onboarding';
 import { LANGUAGES, saveLanguage, type Language } from '@/i18n';
 import UserAvatar from '@/components/UserAvatar';
 import AiConfigSection from '@/components/AiConfigSection';
@@ -29,6 +30,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { serverUrl, token, user: me, logout } = useAuthStore();
   const resetPrefs = usePrefsStore(s => s.reset);
+  const resetOnboarding = useOnboardingStore(s => s.reset);
   const { t, i18n } = useTranslation();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -61,6 +63,7 @@ export default function ProfileScreen() {
               try { await SecureStore.deleteItemAsync(HAE_SAVED_CREDS); } catch {}
             }
             resetPrefs();
+            resetOnboarding();
             logout();
             router.replace('/(auth)/login');
           } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
@@ -342,6 +345,13 @@ export default function ProfileScreen() {
         {advancedVisible && (
           <View style={[s.block, { marginBottom: 8 }]}>
             <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
+            <TouchableOpacity style={[s.dangerRow, { borderBottomWidth: 1, borderColor: '#F0F0EC' }]} onPress={() => {
+              resetOnboarding();
+              Alert.alert('Onboarding réinitialisé', 'L\'onboarding s\'affichera au prochain démarrage.');
+            }}>
+              <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>Revoir l'onboarding</Text>
+              <Text style={s.dangerHint}>S'affichera au prochain démarrage de l'app.</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
               <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
               <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
