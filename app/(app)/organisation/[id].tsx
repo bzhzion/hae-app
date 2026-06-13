@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { makeApi } from '@/lib/api';
 import { useLocalSearchParams } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Alert, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
@@ -17,7 +17,6 @@ const ORG_ROLES = ['member', 'admin', 'owner'];
 
 interface OrgMember { id: string; name: string; email: string; avatar_url?: string | null; role: string; }
 interface Org { id: string; name: string; description?: string | null; my_role: string | null; members: OrgMember[]; }
-interface UserHit { id: string; name: string; email: string; avatar_url?: string | null; }
 
 export default function OrgScreen() {
   const insets = useSafeAreaInsets();
@@ -36,11 +35,9 @@ export default function OrgScreen() {
 
   // Add member
   const [showAdd, setShowAdd] = useState(false);
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchResults, setSearchResults] = useState<UserHit[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [addEmail, setAddEmail] = useState('');
   const [addLoading, setAddLoading] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addError, setAddError] = useState('');
 
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
@@ -86,30 +83,19 @@ export default function OrgScreen() {
     );
   };
 
-  const handleSearchEmail = (text: string) => {
-    setSearchEmail(text);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (text.length < 3) { setSearchResults([]); return; }
-    searchTimer.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const results = await api('GET', `/api/users/search?email=${encodeURIComponent(text)}`);
-        const memberIds = new Set(org?.members.map(m => m.id));
-        setSearchResults((Array.isArray(results) ? results : []).filter((u: UserHit) => !memberIds.has(u.id)));
-      } catch {}
-      finally { setSearching(false); }
-    }, 400);
-  };
-
-  const addMember = async (user: UserHit) => {
+  const addMember = async () => {
+    const email = addEmail.trim();
+    if (!email) return;
     setAddLoading(true);
+    setAddError('');
     try {
-      await api('POST', `/api/organisations/${orgId}/members`, { userId: user.id, memberRole: 'member' });
+      await api('POST', `/api/organisations/${orgId}/members`, { email, memberRole: 'member' });
       setShowAdd(false);
-      setSearchEmail('');
-      setSearchResults([]);
+      setAddEmail('');
       await load();
-    } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
+    } catch (e: any) {
+      setAddError(e.message === '404' || e.message?.includes('not found') ? 'Utilisateur introuvable' : e.message);
+    }
     finally { setAddLoading(false); }
   };
 
@@ -180,7 +166,7 @@ export default function OrgScreen() {
           <View style={s.sectionRow}>
             <Text style={s.sectionLabel}>MEMBRES{org?.members.length ? ` (${org.members.length})` : ''}</Text>
             {canManage && (
-              <TouchableOpacity style={s.addMemberBtn} onPress={() => { setSearchEmail(''); setSearchResults([]); setShowAdd(true); }} accessibilityRole="button">
+              <TouchableOpacity style={s.addMemberBtn} onPress={() => { setAddEmail(''); setAddError(''); setShowAdd(true); }} accessibilityRole="button">
                 <Feather name="user-plus" size={13} color={BRAND} />
                 <Text style={s.addMemberText}>Ajouter</Text>
               </TouchableOpacity>
@@ -247,38 +233,24 @@ export default function OrgScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
               <Text style={s.sheetTitle}>AJOUTER UN MEMBRE</Text>
-              <Text style={s.inputLabel}>CHERCHER PAR EMAIL</Text>
-              <View style={s.searchRow}>
-                <TextInput
-                  style={[s.input, { flex: 1, marginBottom: 0 }]}
-                  value={searchEmail}
-                  onChangeText={handleSearchEmail}
-                  autoFocus
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholder="utilisateur@exemple.com"
-                  placeholderTextColor="#A0A098"
-                  accessibilityLabel="Search email"
-                />
-                {searching && <ActivityIndicator color={BRAND} style={{ marginLeft: 8 }} />}
-              </View>
-              {searchResults.length > 0 && (
-                <View style={s.resultList}>
-                  {searchResults.map(u => (
-                    <TouchableOpacity key={u.id} style={s.resultRow} onPress={() => addMember(u)} disabled={addLoading} accessibilityRole="button">
-                      <UserAvatar name={u.name} serverUrl={serverUrl} token={token ?? undefined} size={32} avatarUrl={u.avatar_url ?? undefined} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.rowName}>{u.name}</Text>
-                        <Text style={s.rowSub}>{u.email}</Text>
-                      </View>
-                      <Feather name="plus" size={16} color={BRAND} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-              {searchEmail.length >= 3 && !searching && searchResults.length === 0 && (
-                <Text style={s.noResult}>Aucun utilisateur trouvé</Text>
-              )}
+              <Text style={s.inputLabel}>EMAIL</Text>
+              <TextInput
+                style={s.input}
+                value={addEmail}
+                onChangeText={t => { setAddEmail(t); setAddError(''); }}
+                autoFocus
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="utilisateur@exemple.com"
+                placeholderTextColor="#A0A098"
+                onSubmitEditing={addMember}
+                returnKeyType="done"
+                accessibilityLabel="Member email"
+              />
+              {addError ? <Text style={s.errorText}>{addError}</Text> : null}
+              <TouchableOpacity style={[s.saveBtn, { marginTop: 12 }]} onPress={addMember} disabled={addLoading} accessibilityRole="button">
+                {addLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.saveBtnText}>Ajouter</Text>}
+              </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -314,8 +286,5 @@ const s = StyleSheet.create({
   input:        { fontSize: 15, color: '#1A1A1A', borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 },
   saveBtn:      { backgroundColor: BRAND, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   saveBtnText:  { color: '#fff', fontSize: 15, fontWeight: '700' },
-  searchRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  resultList:   { borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 10, overflow: 'hidden' },
-  resultRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F0' },
-  noResult:     { fontSize: 13, color: '#8A8A80', textAlign: 'center', marginTop: 8 },
+  errorText:    { fontSize: 13, color: BRAND, marginTop: 4 },
 });
