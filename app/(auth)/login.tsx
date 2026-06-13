@@ -10,7 +10,9 @@ import { saveLanguage } from '@/i18n';
 import i18n from '@/i18n';
 
 const CREDS_KEY = 'hae-saved-creds';
-const FIXED_SERVER = Platform.OS === 'web' ? (process.env.EXPO_PUBLIC_SERVER_URL ?? '') : '';
+const FIXED_SERVER = Platform.OS === 'web'
+  ? ((typeof window !== 'undefined' ? (window as any).__HAE_SERVER_URL__ : '') || process.env.EXPO_PUBLIC_SERVER_URL || '')
+  : '';
 
 interface SavedCreds { serverUrl: string; email: string; }
 

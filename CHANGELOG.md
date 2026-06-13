@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.47] - 2026-06-14
+
+### Changed
+- Runtime `SERVER_URL` injection via nginx entrypoint : l'image GHCR accepte `SERVER_URL` en variable d'env Docker au démarrage (pas au build)
+- `docker-entrypoint.sh` : génère `/env.js` avec `window.__HAE_SERVER_URL__` + patche `index.html` au démarrage du conteneur
+- `login.tsx` : lit `window.__HAE_SERVER_URL__` en priorité (runtime), fallback sur `EXPO_PUBLIC_SERVER_URL` (build-time)
+- `Dockerfile.web` : retire ARG/ENV SERVER_URL build-time, utilise entrypoint
+
 ## [1.3.46] - 2026-06-14
 
 ### Added
