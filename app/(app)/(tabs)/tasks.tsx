@@ -365,6 +365,9 @@ export default function TasksScreen() {
                               ? <ActivityIndicator size="small" color={BRAND} />
                               : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
                           </TouchableOpacity>
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
+                            <Feather name="x" size={12} color="#8A8A80" />
+                          </TouchableOpacity>
                         </View>
                       </View>
                     ) : (
@@ -400,6 +403,9 @@ export default function TasksScreen() {
                             {sttState === 'transcribing'
                               ? <ActivityIndicator size="small" color={BRAND} />
                               : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                          </TouchableOpacity>
+                          <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
+                            <Feather name="x" size={12} color="#8A8A80" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -550,6 +556,7 @@ const s = StyleSheet.create({
   quickInput:     { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: BRAND, paddingVertical: 8 },
   micBtn:         { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   micBtnActive:   { backgroundColor: BRAND },
+  cancelBtn:      { width: 22, height: 22, borderRadius: 11, backgroundColor: '#E8E8E4', alignItems: 'center', justifyContent: 'center' },
   tabs:           { flexDirection: 'row', paddingHorizontal: 20 },
   tab:            { width: TAB_W, paddingBottom: 10, alignItems: 'center' },
   tabRow:         { flexDirection: 'row', alignItems: 'center', gap: 4 },
