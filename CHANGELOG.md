@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.3.10] - 2026-06-13
+
+### Added
+- **Système d'invitations in-app** : bouton "Inviter" dans l'écran organisation (via email), appelle `POST /api/organisations/:id/invitations`
+- Organisations : section "EN ATTENTE" affiche les invitations non répondues (visible owners/admins)
+- Notifications : type `org_invitation` affiché avec boutons "Accepter" / "Refuser" inline (pas de swipe)
+- Notifications : accepter une invitation navigue directement vers l'org
+- Organisations : role picker multi-owner (rôle `owner` désormais sélectionnable)
+
+### Changed
+- Organisations : bouton "Ajouter" renommé "Inviter" (flux invitation, plus ajout direct)
+- Organisations : clic sur un badge `owner` ouvre le role picker (était bloqué)
+
+### Fixed
+- Tasks : bouton annuler (croix dans rond) sur la saisie rapide de carte, dans ScrollView et FlatList
+- Notifications : long press (400ms) + haptic Heavy = pré-remplir le titre et naviguer vers tasks
+
+### Security
+- Settings : token ingest visible une seule fois après génération (modal bloquant avec bouton "J'ai copié")
+- Settings : section token accessible à tous les utilisateurs (pas seulement admin)
+- Auth store : suppression du fallback silencieux `SecureStore → AsyncStorage` (erreur levée en production)
+
 ## [1.3.9] - 2026-06-13
 
 ### Added
