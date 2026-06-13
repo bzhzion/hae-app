@@ -1486,7 +1486,7 @@ const s = StyleSheet.create({
   saveBtnText:      { color: '#fff', fontSize: 13, fontWeight: '700' },
   cancelBtn:        { backgroundColor: '#F0F0EC', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   cancelBtnText:    { color: '#4A4A44', fontSize: 13, fontWeight: '600' },
-  micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
+  micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center' },
   wandBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   aiDisabled:       { borderColor: '#C8C8C0', opacity: 0.4 },
   micBtnDescActive: { backgroundColor: '#A00000' },
