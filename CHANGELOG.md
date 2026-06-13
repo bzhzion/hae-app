@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.41] - 2026-06-14
+
+### Fixed
+- Metro (Node 25) : stub CJS pour `expo-modules-core` via condition `node` dans exports — Metro non affecté (utilise `default` → TypeScript)
+- Retrait de `expo-sharing` des plugins `app.json` (pas d'`app.plugin.js`, Expo recommande de l'enlever)
+- `postinstall` : ajout de `fix-expo-modules-core.js` pour appliquer le patch après `npm install`
+
 ## [1.3.40] - 2026-06-13
 
 ### Added
