@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.27] - 2026-06-13
+
+### Fixed
+- Sheet "Déplacer vers" localisé : titre via `cards.moveToColumn`, noms colonnes via `columns.<type>` (FR/EN/KO)
+
 ## [1.3.26] - 2026-06-13
 
 ### Fixed

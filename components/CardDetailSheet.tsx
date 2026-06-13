@@ -174,7 +174,7 @@ export default function CardDetailSheet({
   card, expandAnim, token, serverUrl, projectId, insets,
   onClose, onCardUpdated, onCardDeleted, onNeedRefetch,
 }: Props) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const lang = i18n.language ?? 'fr';
   const { currentProjectOwnerType, currentProjectOwnerId } = useProjectStore();
   const [detail, setDetail] = useState<CardDetail | null>(null);
@@ -1280,14 +1280,18 @@ export default function CardDetailSheet({
       <Modal visible={showMovePicker} transparent animationType="slide" onRequestClose={() => setShowMovePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMovePicker(false)} />
         <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>Deplacer vers</Text>
+          <Text style={s.sheetTitle}>{t('cards.moveToColumn')}</Text>
           {projectColumns
             .filter(col => col.id !== (detail?.column_id ?? card?.column_id) && col.type !== 'gtd_trash')
-            .map(col => (
-              <TouchableOpacity key={col.id} style={s.sheetRow} onPress={() => moveCard(col.id)}>
-                <Text style={s.sheetRowText}>{col.name}</Text>
-              </TouchableOpacity>
-            ))}
+            .map(col => {
+              const typeKey = col.type?.replace(/^gtd_/, '') as string;
+              const label = typeKey && i18n.exists(`columns.${typeKey}`) ? t(`columns.${typeKey}`) : col.name;
+              return (
+                <TouchableOpacity key={col.id} style={s.sheetRow} onPress={() => moveCard(col.id)}>
+                  <Text style={s.sheetRowText}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
         </View>
       </Modal>
 
