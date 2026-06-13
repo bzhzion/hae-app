@@ -39,6 +39,9 @@ export default function OrgScreen() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
 
+  // Role picker
+  const [roleTarget, setRoleTarget] = useState<OrgMember | null>(null);
+
   const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const canManage = org?.my_role === 'owner' || org?.my_role === 'admin' || me?.role === 'admin';
@@ -103,22 +106,12 @@ export default function OrgScreen() {
     finally { setAddLoading(false); }
   };
 
-  const changeMemberRole = (m: OrgMember) => {
-    const current = ORG_ROLES.indexOf(m.role);
-    const next = ORG_ROLES[(current + 1) % ORG_ROLES.length];
-    Alert.alert(
-      t('projectSettings.changeRoleTitle'),
-      `${m.name} : ${m.role} → ${next}`,
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.confirm'), onPress: async () => {
-          try {
-            await api('PATCH', `/api/organisations/${orgId}/members/${m.id}`, { memberRole: next });
-            await load();
-          } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
-        }},
-      ]
-    );
+  const changeMemberRole = async (m: OrgMember, newRole: string) => {
+    try {
+      await api('PATCH', `/api/organisations/${orgId}/members/${m.id}`, { memberRole: newRole });
+      setRoleTarget(null);
+      await load();
+    } catch (e: any) { Alert.alert(t('admin.error'), e.message); }
   };
 
   const removeMember = (m: OrgMember) => {
@@ -186,7 +179,7 @@ export default function OrgScreen() {
               </View>
               <TouchableOpacity
                 style={[s.roleBadge, { backgroundColor: (ORG_ROLE_COLORS[m.role] ?? '#6b7280') + '18', borderColor: (ORG_ROLE_COLORS[m.role] ?? '#6b7280') + '55' }]}
-                onPress={() => canManage && m.role !== 'owner' ? changeMemberRole(m) : undefined}
+                onPress={() => canManage && m.role !== 'owner' ? setRoleTarget(m) : undefined}
                 accessibilityRole="button"
               >
                 <Text style={[s.roleText, { color: ORG_ROLE_COLORS[m.role] ?? '#6b7280' }]}>{m.role}</Text>
@@ -210,6 +203,30 @@ export default function OrgScreen() {
 
         </ScrollView>
       )}
+
+      {/* Modal role picker */}
+      <Modal visible={!!roleTarget} transparent animationType="slide" onRequestClose={() => setRoleTarget(null)}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setRoleTarget(null)} />
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
+              <Text style={s.sheetTitle}>RÔLE — {roleTarget?.name?.toUpperCase()}</Text>
+              {ORG_ROLES.filter(r => r !== 'owner').map(role => (
+                <TouchableOpacity
+                  key={role}
+                  style={[s.roleOption, roleTarget?.role === role && s.roleOptionActive]}
+                  onPress={() => roleTarget && changeMemberRole(roleTarget, role)}
+                  accessibilityRole="button"
+                >
+                  <View style={[s.roleOptionDot, { backgroundColor: ORG_ROLE_COLORS[role] ?? '#6b7280' }]} />
+                  <Text style={[s.roleOptionText, roleTarget?.role === role && { fontWeight: '700' }]}>{role}</Text>
+                  {roleTarget?.role === role && <Feather name="check" size={14} color={ORG_ROLE_COLORS[role] ?? '#6b7280'} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal edit org */}
       <Modal visible={showEdit} transparent animationType="slide" onRequestClose={() => setShowEdit(false)}>
@@ -285,6 +302,10 @@ const s = StyleSheet.create({
   roleText:     { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   removeBtn:    { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F5F0' },
   sheet:        { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
+  roleOption:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F0F0EC' },
+  roleOptionActive: { backgroundColor: '#FAFAF8' },
+  roleOptionDot:{ width: 10, height: 10, borderRadius: 5 },
+  roleOptionText:{ flex: 1, fontSize: 15, color: '#1A1A1A', textTransform: 'capitalize' },
   sheetTitle:   { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: '#6B6B63', marginBottom: 16 },
   inputLabel:   { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#6B6B63', marginBottom: 6 },
   input:        { fontSize: 15, color: '#1A1A1A', borderWidth: 1.5, borderColor: BRAND, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 },
