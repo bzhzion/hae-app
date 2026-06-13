@@ -104,7 +104,7 @@ export default function OrganisationsScreen() {
           <Text style={s.inputLabel}>{t('orgs.orgName').toUpperCase()}</Text>
           <TextInput
             style={s.input}
-            placeholder="Ex: Breizhzion, Mon équipe..."
+            placeholder="Ex: Acme, Mon équipe..."
             placeholderTextColor="#A0A098"
             accessibilityLabel="Organisation name"
             value={newName}
