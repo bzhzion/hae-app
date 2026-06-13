@@ -148,7 +148,7 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, t }
             style={[s.item, !item.is_read && s.itemUnread]}
             accessibilityRole="button"
             onPress={() => !showArchived && onMarkRead(item)}
-            onLongPress={() => onCreateCard(item)}
+            onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onCreateCard(item); }}
             delayLongPress={400}
             activeOpacity={0.7}
           >
