@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.35] - 2026-06-13
+
+### Changed
+- Création de carte : formulaire inline remplacé par un bottom sheet modal (slide)
+  - Sélecteur de colonne GTD en pills horizontales
+  - TextInput multiline auto-extensible, grisé pendant l'enregistrement mic
+  - Footer : mic (gauche) + annuler + valider (droite)
+  - Flow notification `pendingNewCardTitle` compatible : ouvre le modal pré-rempli sur la 1ère colonne
+
 ## [1.3.34] - 2026-06-13
 
 ### Fixed

@@ -110,6 +110,7 @@ export default function TasksScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [addingInColumn, setAddingInColumn] = useState<string | null>(null);
+  const [modalColumnId, setModalColumnId] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
   const [renamingCol, setRenamingCol] = useState<Column | null>(null);
   const [renameText, setRenameText] = useState('');
@@ -127,6 +128,16 @@ export default function TasksScreen() {
   const [isParsing, setIsParsing] = useState(false);
   const { sttReady, aiReady } = useAiConfig();
   const micEnabled = sttReady && aiReady;
+
+  const openAddModal = (colId: string) => {
+    setModalColumnId(colId);
+    setAddingInColumn(colId);
+  };
+  const closeAddModal = () => {
+    setAddingInColumn(null);
+    setModalColumnId(null);
+    setNewCardTitle('');
+  };
 
   const handleMicPress = useCallback(async () => {
     if (isParsing) return;
@@ -203,6 +214,7 @@ Respond with only valid JSON, no explanation.`;
 
       await fetchProject();
       showToast(parsed.title ?? text);
+      closeAddModal();
     } catch {
       setNewCardTitle(prev => prev ? prev + ' ' + text : text);
     } finally {
@@ -286,12 +298,11 @@ Respond with only valid JSON, no explanation.`;
 
   const createCard = useCallback(async (colId: string) => {
     const title = newCardTitle.trim();
-    if (!title) { setAddingInColumn(null); return; }
+    if (!title) { closeAddModal(); return; }
     const col = columns.find(c => c.id === colId);
     if (!col) return;
     Keyboard.dismiss();
-    setAddingInColumn(null);
-    setNewCardTitle('');
+    closeAddModal();
     try {
       const res = await fetch(`${serverUrl}/api/columns/${col.id}/cards`, {
         method: 'POST',
@@ -336,7 +347,7 @@ Respond with only valid JSON, no explanation.`;
     if (!first) return;
     setPendingNewCardTitle(null);
     setNewCardTitle(pendingNewCardTitle);
-    setTimeout(() => setAddingInColumn(first.id), 100);
+    openAddModal(first.id);
   }, [pendingNewCardTitle, columns]);
 
   const goTo = (i: number) => {
@@ -479,43 +490,10 @@ Respond with only valid JSON, no explanation.`;
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
                     automaticallyAdjustKeyboardInsets={true}
                   >
-                    {addingInColumn === col.id ? (
-                      <View style={[s.quickAdd, { width: width - 40 }]}>
-                        <View style={s.quickRow}>
-                          <TextInput
-                            autoFocus
-                            multiline
-                            style={[s.quickInput, { flex: 1 }]}
-                            placeholder={t('tasks.newTask')}
-                            placeholderTextColor="#A0A098"
-                            value={newCardTitle}
-                            onChangeText={setNewCardTitle}
-                            scrollEnabled={false}
-                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
-                            accessibilityLabel="New task title"
-                            maxLength={500}
-                          />
-                          <View style={s.quickBtns}>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPressIn={() => { micActiveRef.current = true; }} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
-                              {sttState === 'transcribing' || isParsing
-                                ? <ActivityIndicator size="small" color={BRAND} />
-                                : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
-                            </TouchableOpacity>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.confirmBtn, !newCardTitle.trim() && s.confirmBtnDisabled]} onPress={() => createCard(col.id)} disabled={!newCardTitle.trim()} accessibilityLabel="Créer">
-                              <Feather name="check" size={14} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
-                            </TouchableOpacity>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
-                              <Feather name="x" size={12} color="#8A8A80" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={s.emptyState}>
-                        <Text style={s.emptyMain}>{t('tasks.nothingHere')}</Text>
-                        <Text style={s.emptySub}>{t('tasks.wellDone')}</Text>
-                      </View>
-                    )}
+                    <View style={s.emptyState}>
+                      <Text style={s.emptyMain}>{t('tasks.nothingHere')}</Text>
+                      <Text style={s.emptySub}>{t('tasks.wellDone')}</Text>
+                    </View>
                   </ScrollView>
                 ) : (
                   <FlatList
@@ -524,38 +502,7 @@ Respond with only valid JSON, no explanation.`;
                     style={{ width }}
                     contentContainerStyle={s.cardList}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
-                    ListHeaderComponent={addingInColumn === col.id ? (
-                      <View style={s.quickAdd}>
-                        <View style={s.quickRow}>
-                          <TextInput
-                            autoFocus
-                            multiline
-                            style={[s.quickInput, { flex: 1 }]}
-                            placeholder={t('tasks.newTask')}
-                            placeholderTextColor="#A0A098"
-                            value={newCardTitle}
-                            onChangeText={setNewCardTitle}
-                            scrollEnabled={false}
-                            onBlur={() => { if (!newCardTitle.trim() && !micActiveRef.current) setAddingInColumn(null); }}
-                            accessibilityLabel="New task title"
-                            maxLength={500}
-                          />
-                          <View style={s.quickBtns}>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]} onPressIn={() => { micActiveRef.current = true; }} onPress={handleMicPress} disabled={!micEnabled} accessibilityLabel="Dicter">
-                              {sttState === 'transcribing' || isParsing
-                                ? <ActivityIndicator size="small" color={BRAND} />
-                                : <Feather name="mic" size={14} color={sttState === 'recording' ? '#fff' : BRAND} />}
-                            </TouchableOpacity>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={[s.confirmBtn, !newCardTitle.trim() && s.confirmBtnDisabled]} onPress={() => createCard(col.id)} disabled={!newCardTitle.trim()} accessibilityLabel="Créer">
-                              <Feather name="check" size={14} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
-                            </TouchableOpacity>
-                            <TouchableOpacity hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={s.cancelBtn} onPress={() => { setAddingInColumn(null); setNewCardTitle(''); }} accessibilityLabel="Annuler">
-                              <Feather name="x" size={12} color="#8A8A80" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    ) : null}
+                    ListHeaderComponent={null}
                     renderItem={({ item }) => (
                       <TouchableOpacity
                         style={s.card}
@@ -614,6 +561,82 @@ Respond with only valid JSON, no explanation.`;
         </ScrollView>
       )}
 
+      <Modal
+        visible={addingInColumn !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeAddModal}
+      >
+        <View style={s.addOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeAddModal} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={s.addKav}
+          >
+            <View style={s.addSheet}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.colPillRow} keyboardShouldPersistTaps="always">
+                {columns.map(col => (
+                  <TouchableOpacity
+                    key={col.id}
+                    style={[s.colPill, modalColumnId === col.id && s.colPillActive]}
+                    onPress={() => setModalColumnId(col.id)}
+                  >
+                    <Text style={[s.colPillText, modalColumnId === col.id && s.colPillTextActive]}>
+                      {t(`gtd.${col.type}`, { defaultValue: col.name })}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                autoFocus
+                multiline
+                scrollEnabled={false}
+                style={[s.addInput, (sttState === 'recording' || sttState === 'transcribing' || isParsing) && s.addInputDimmed]}
+                placeholder={t('tasks.newTask')}
+                placeholderTextColor="#A0A098"
+                value={newCardTitle}
+                onChangeText={setNewCardTitle}
+                maxLength={500}
+                editable={sttState === 'idle' && !isParsing}
+              />
+
+              <View style={s.addFooter}>
+                <TouchableOpacity
+                  style={[s.micBtn, sttState === 'recording' && s.micBtnActive, !micEnabled && s.micBtnDisabled]}
+                  onPressIn={() => { micActiveRef.current = true; }}
+                  onPress={handleMicPress}
+                  disabled={!micEnabled || isParsing}
+                  accessibilityLabel="Dicter"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {sttState === 'transcribing' || isParsing
+                    ? <ActivityIndicator size="small" color={BRAND} />
+                    : <Feather name="mic" size={16} color={sttState === 'recording' ? '#fff' : BRAND} />}
+                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity
+                  style={s.addCancelBtn}
+                  onPress={closeAddModal}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Annuler"
+                >
+                  <Feather name="x" size={16} color="#8A8A80" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.addConfirmBtn, !newCardTitle.trim() && s.addConfirmBtnDisabled]}
+                  onPress={() => modalColumnId && createCard(modalColumnId)}
+                  disabled={!newCardTitle.trim() || !modalColumnId}
+                  accessibilityLabel="Créer"
+                >
+                  <Feather name="check" size={18} color={newCardTitle.trim() ? '#fff' : '#A0A098'} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       <Modal visible={!!renamingCol} transparent animationType="fade" onRequestClose={() => setRenamingCol(null)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setRenamingCol(null)}>
@@ -649,7 +672,7 @@ Respond with only valid JSON, no explanation.`;
       {currentProjectId && (
         <TouchableOpacity
           style={[s.fab, { bottom: insets.bottom + 20 }]}
-          onPress={() => { setAddingInColumn(pages[page]?.id ?? null); setNewCardTitle(''); }}
+          onPress={() => { if (pages[page]?.id) openAddModal(pages[page].id); }}
           activeOpacity={0.85}
           accessibilityLabel="Add task"
           accessibilityRole="button"
@@ -698,15 +721,23 @@ const s = StyleSheet.create({
   modalCancelText:{ fontSize: 14, color: '#6B6B63', fontWeight: '500' },
   modalConfirm:   { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   modalConfirmText:{ fontSize: 14, color: '#fff', fontWeight: '700' },
-  quickAdd:        { paddingHorizontal: 4, paddingVertical: 8 },
-  quickRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  quickInput:      { fontSize: 15, fontWeight: '500', color: '#1A1A1A', borderWidth: 1, borderColor: BRAND, borderRadius: 8, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 10, textAlignVertical: 'top', minHeight: 40 },
-  quickBtns:       { flexDirection: 'column', alignItems: 'center', gap: 6, paddingBottom: 2 },
   micBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   micBtnActive:    { backgroundColor: BRAND },
   micBtnDisabled:  { borderColor: '#C8C8C0', opacity: 0.4 },
-  confirmBtn:      { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnDisabled: { backgroundColor: '#E8E8E4' },
+  addOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  addKav:          { width: '100%' },
+  addSheet:        { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, gap: 14 },
+  colPillRow:      { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  colPill:         { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5, borderColor: '#D0D0C8' },
+  colPillActive:   { borderColor: BRAND, backgroundColor: '#FFF0F0' },
+  colPillText:     { fontSize: 13, fontWeight: '600', color: '#6A6A62' },
+  colPillTextActive: { color: BRAND },
+  addInput:        { fontSize: 16, fontWeight: '500', color: '#1A1A1A', minHeight: 44, textAlignVertical: 'top' },
+  addInputDimmed:  { opacity: 0.35 },
+  addFooter:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 12 },
+  addCancelBtn:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0EC', alignItems: 'center', justifyContent: 'center' },
+  addConfirmBtn:   { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  addConfirmBtnDisabled: { backgroundColor: '#E8E8E4' },
 
   annOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', padding: 16 },
   annBox:       { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', maxHeight: '75%' },
