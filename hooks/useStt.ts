@@ -83,6 +83,7 @@ export function useStt() {
       setState('idle');
       return data.text?.trim() ?? null;
     } catch (e: any) {
+      console.error('[STT]', e);
       showToast('Erreur STT');
       setState('idle');
       return null;
