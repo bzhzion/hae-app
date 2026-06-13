@@ -496,8 +496,15 @@ Respond with only valid JSON, no explanation.`;
                     automaticallyAdjustKeyboardInsets={true}
                   >
                     <View style={s.emptyState}>
-                      <Text style={s.emptyMain}>{t('tasks.nothingHere')}</Text>
-                      <Text style={s.emptySub}>{t('tasks.wellDone')}</Text>
+                      <Text style={s.emptyEmoji}>
+                        {col.type === 'gtd_inbox' ? '📭' : col.type === 'gtd_urgent' ? '🎉' : '✌️'}
+                      </Text>
+                      <Text style={s.emptyMain}>
+                        {col.type === 'gtd_inbox' ? t('tasks.emptyInboxTitle') : col.type === 'gtd_urgent' ? t('tasks.emptyUrgentTitle') : t('tasks.nothingHere')}
+                      </Text>
+                      <Text style={s.emptySub}>
+                        {col.type === 'gtd_inbox' ? t('tasks.emptyInboxSub') : col.type === 'gtd_urgent' ? t('tasks.emptyUrgentSub') : t('tasks.wellDone')}
+                      </Text>
                     </View>
                   </ScrollView>
                 ) : (
@@ -797,7 +804,8 @@ const s = StyleSheet.create({
   checklistCount:    { fontSize: 10, fontWeight: '600', color: '#6B6B63', minWidth: 28, textAlign: 'right' },
   empty:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyScrollContent: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 },
-  emptyState:     { alignItems: 'center' },
-  emptyMain:      { fontSize: 18, fontWeight: '600', color: '#1A1A1A', letterSpacing: -0.3 },
-  emptySub:       { fontSize: 13, color: '#6B6B63', marginTop: 6 },
+  emptyState:     { alignItems: 'center', paddingHorizontal: 32 },
+  emptyEmoji:     { fontSize: 40, marginBottom: 12 },
+  emptyMain:      { fontSize: 18, fontWeight: '700', color: '#1A1A1A', letterSpacing: -0.3, textAlign: 'center' },
+  emptySub:       { fontSize: 13, color: '#6B6B63', marginTop: 6, textAlign: 'center', lineHeight: 19 },
 });

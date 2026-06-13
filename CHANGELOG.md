@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.39] - 2026-06-13
+
+### Added
+- Messages motivants par colonne GTD vide : Inbox (📭 + encouragement) et Urgent (🎉 + redirection vers Suivant), avec emoji, titre et sous-titre centrés
+- Clés i18n `tasks.emptyInboxTitle/Sub` et `tasks.emptyUrgentTitle/Sub` en FR/EN/KO
+
 ## [1.3.38] - 2026-06-13
 
 ### Fixed
