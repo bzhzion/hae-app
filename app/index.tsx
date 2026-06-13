@@ -161,7 +161,7 @@ export default function Index() {
       fetch(ANNOUNCEMENTS_URL, { signal: AbortSignal.timeout?.(4000) })
         .then(r => r.ok ? r.json() : { announcements: [] })
         .then((data: { announcements: any[] }) => {
-          const unseen = (data.announcements ?? []).filter((a: any) => !seenIds.includes(a.id));
+          const unseen = (data.announcements ?? []).filter((a: any) => !seenIds.includes(a.id)).reverse();
           if (unseen.length > 0) setPending(unseen);
         })
         .catch(() => {}),

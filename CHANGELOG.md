@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.26] - 2026-06-13
+
+### Fixed
+- Annonces triées chronologiquement (plus ancienne en premier, plus récente en dernier) pour navigation "Suivant" cohérente
+
 ## [1.3.25] - 2026-06-13
 
 ### Fixed
