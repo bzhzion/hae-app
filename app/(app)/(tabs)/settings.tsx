@@ -73,6 +73,7 @@ export default function ProfileScreen() {
   const [ingestConfigured, setIngestConfigured] = useState(false);
   const [ingestTokenLoading, setIngestTokenLoading] = useState(false);
   const [ingestCopied, setIngestCopied] = useState(false);
+  const [showTokenModal, setShowTokenModal] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const changeAvatar = async () => {
@@ -152,7 +153,11 @@ export default function ProfileScreen() {
     setIngestTokenLoading(true);
     try {
       const r: any = await api('POST', '/api/users/me/ingest-token');
-      setIngestToken(r?.token ?? null);
+      if (r?.token) {
+        setIngestToken(r.token);
+        setIngestCopied(false);
+        setShowTokenModal(true);
+      }
       setIngestConfigured(true);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setIngestTokenLoading(false); }
@@ -263,22 +268,8 @@ export default function ProfileScreen() {
           Permet à des apps externes d'envoyer des notifications via{'\n'}
           POST /api/ingest avec Authorization: Bearer &lt;token&gt;
         </Text>
-        {ingestToken ? (
-          <>
-            <Text style={{ fontSize: 11, color: '#e67e22', fontWeight: '600', marginBottom: 6 }}>
-              Copiez maintenant — ne sera plus affiché
-            </Text>
-            <View style={s.tokenRow}>
-              <Text style={s.tokenText} numberOfLines={1} selectable>
-                {ingestToken}
-              </Text>
-              <TouchableOpacity style={s.tokenBtn} onPress={copyIngestToken} accessibilityRole="button">
-                <Feather name={ingestCopied ? 'check' : 'copy'} size={14} color={ingestCopied ? '#22c55e' : '#6B6B63'} />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : ingestConfigured ? (
-          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Token configuré (non récupérable)</Text>
+        {ingestConfigured ? (
+          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Token actif — configuré</Text>
         ) : (
           <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Aucun token généré</Text>
         )}
@@ -293,6 +284,41 @@ export default function ProfileScreen() {
             : <Text style={s.editProfileBtnText}>{ingestConfigured ? 'Régénérer' : 'Générer un token'}</Text>
           }
         </TouchableOpacity>
+
+        {/* Modal token — affiché une seule fois */}
+        <Modal visible={showTokenModal} transparent animationType="fade" onRequestClose={() => {}}>
+          <View style={s.tokenModalOverlay}>
+            <View style={s.tokenModalBox}>
+              <View style={s.tokenModalWarning}>
+                <Feather name="alert-triangle" size={20} color="#fff" />
+                <Text style={s.tokenModalWarningText}>Copiez ce token maintenant !</Text>
+              </View>
+              <Text style={s.tokenModalDesc}>
+                Ce token ne sera plus jamais affiché. Si vous le perdez, vous devrez en générer un nouveau.
+              </Text>
+              <View style={s.tokenModalTokenRow}>
+                <Text style={s.tokenModalToken} selectable numberOfLines={2}>
+                  {ingestToken}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[s.tokenModalCopyBtn, ingestCopied && s.tokenModalCopyBtnDone]}
+                onPress={copyIngestToken}
+                accessibilityRole="button"
+              >
+                <Feather name={ingestCopied ? 'check' : 'copy'} size={16} color="#fff" />
+                <Text style={s.tokenModalCopyText}>{ingestCopied ? 'Copié !' : 'Copier le token'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.tokenModalDoneBtn}
+                onPress={() => { setShowTokenModal(false); setIngestToken(null); }}
+                accessibilityRole="button"
+              >
+                <Text style={s.tokenModalDoneText}>J'ai copié mon token</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={s.divider} />
 
@@ -417,4 +443,16 @@ const s = StyleSheet.create({
   dangerRow:        { paddingHorizontal: 14, paddingVertical: 12 },
   dangerLabel:      { fontSize: 14, fontWeight: '600', color: BRAND },
   dangerHint:       { fontSize: 12, color: '#6B6B63', marginTop: 3 },
+  tokenModalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  tokenModalBox:        { backgroundColor: '#fff', borderRadius: 16, width: '100%', overflow: 'hidden' },
+  tokenModalWarning:    { backgroundColor: BRAND, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16 },
+  tokenModalWarningText:{ color: '#fff', fontSize: 15, fontWeight: '700', flex: 1 },
+  tokenModalDesc:       { fontSize: 13, color: '#4A4A44', lineHeight: 20, padding: 16, paddingBottom: 8 },
+  tokenModalTokenRow:   { marginHorizontal: 16, backgroundColor: '#F5F5F0', borderRadius: 10, padding: 14, marginBottom: 16 },
+  tokenModalToken:      { fontFamily: 'monospace', fontSize: 12, color: '#1A1A1A', lineHeight: 20 },
+  tokenModalCopyBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A1A1A', marginHorizontal: 16, borderRadius: 10, paddingVertical: 13 },
+  tokenModalCopyBtnDone:{ backgroundColor: '#16a34a' },
+  tokenModalCopyText:   { color: '#fff', fontSize: 14, fontWeight: '700' },
+  tokenModalDoneBtn:    { alignItems: 'center', paddingVertical: 16 },
+  tokenModalDoneText:   { fontSize: 14, color: '#6B6B63', fontWeight: '600' },
 });
