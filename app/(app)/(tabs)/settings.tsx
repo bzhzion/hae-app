@@ -70,6 +70,7 @@ export default function ProfileScreen() {
   };
 
   const [ingestToken, setIngestToken] = useState<string | null>(null);
+  const [ingestConfigured, setIngestConfigured] = useState(false);
   const [ingestTokenLoading, setIngestTokenLoading] = useState(false);
   const [ingestCopied, setIngestCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,7 +144,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     api('GET', '/api/users/me/ingest-token', undefined, { silent: true })
-      .then((r: any) => setIngestToken(r?.token ?? null))
+      .then((r: any) => setIngestConfigured(!!r?.configured))
       .catch(() => {});
   }, [api]);
 
@@ -152,6 +153,7 @@ export default function ProfileScreen() {
     try {
       const r: any = await api('POST', '/api/users/me/ingest-token');
       setIngestToken(r?.token ?? null);
+      setIngestConfigured(true);
     } catch (e: any) { Alert.alert('Erreur', e.message); }
     finally { setIngestTokenLoading(false); }
   }, [api]);
@@ -262,14 +264,21 @@ export default function ProfileScreen() {
           POST /api/ingest avec Authorization: Bearer &lt;token&gt;
         </Text>
         {ingestToken ? (
-          <View style={s.tokenRow}>
-            <Text style={s.tokenText} numberOfLines={1}>
-              {ingestToken.slice(0, 8)}{'•'.repeat(24)}{ingestToken.slice(-4)}
+          <>
+            <Text style={{ fontSize: 11, color: '#e67e22', fontWeight: '600', marginBottom: 6 }}>
+              Copiez maintenant — ne sera plus affiché
             </Text>
-            <TouchableOpacity style={s.tokenBtn} onPress={copyIngestToken} accessibilityRole="button">
-              <Feather name={ingestCopied ? 'check' : 'copy'} size={14} color={ingestCopied ? '#22c55e' : '#6B6B63'} />
-            </TouchableOpacity>
-          </View>
+            <View style={s.tokenRow}>
+              <Text style={s.tokenText} numberOfLines={1} selectable>
+                {ingestToken}
+              </Text>
+              <TouchableOpacity style={s.tokenBtn} onPress={copyIngestToken} accessibilityRole="button">
+                <Feather name={ingestCopied ? 'check' : 'copy'} size={14} color={ingestCopied ? '#22c55e' : '#6B6B63'} />
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : ingestConfigured ? (
+          <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Token configuré (non récupérable)</Text>
         ) : (
           <Text style={{ fontSize: 12, color: '#8A8A80', marginBottom: 8 }}>Aucun token généré</Text>
         )}
@@ -281,7 +290,7 @@ export default function ProfileScreen() {
         >
           {ingestTokenLoading
             ? <ActivityIndicator size="small" color={BRAND} />
-            : <Text style={s.editProfileBtnText}>{ingestToken ? 'Régénérer' : 'Générer un token'}</Text>
+            : <Text style={s.editProfileBtnText}>{ingestConfigured ? 'Régénérer' : 'Générer un token'}</Text>
           }
         </TouchableOpacity>
 
