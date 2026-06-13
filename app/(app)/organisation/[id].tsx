@@ -237,7 +237,7 @@ export default function OrgScreen() {
           <View style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
               <Text style={s.sheetTitle}>RÔLE — {roleTarget?.name?.toUpperCase()}</Text>
-              {ORG_ROLES.filter(r => r !== 'owner').map(role => (
+              {ORG_ROLES.map(role => (
                 <TouchableOpacity
                   key={role}
                   style={[s.roleOption, roleTarget?.role === role && s.roleOptionActive]}
