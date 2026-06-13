@@ -254,11 +254,11 @@ export default function Index() {
 }
 
 const ls = StyleSheet.create({
-  screen:     { flex: 1, backgroundColor: '#FAFAF8', alignItems: 'center', justifyContent: 'center' },
+  screen:     { flex: 1, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   logo:       { width: 96, height: 96, marginBottom: 32 },
-  label:      { fontSize: 13, color: '#8A8A80', fontWeight: '500', marginBottom: 16, letterSpacing: 0.3 },
+  label:      { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginBottom: 16, letterSpacing: 0.3 },
   dots:       { flexDirection: 'row', gap: 8 },
-  dot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND },
+  dot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
 
   modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', padding: 16 },
   modalBox:       { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', maxHeight: '75%' },
