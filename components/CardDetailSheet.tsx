@@ -450,6 +450,38 @@ export default function CardDetailSheet({
     }
   }, [detail, card, api, projectId, onCardUpdated, t]);
 
+  const [suggestingLabels, setSuggestingLabels] = useState(false);
+
+  const suggestLabels = useCallback(async () => {
+    if (!detail || !card || !projectLabels.length) return;
+    setSuggestingLabels(true);
+    try {
+      const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
+      if (!cfg?.ai_base_url || !cfg?.ai_api_key) { showToast(t('cards.aiConfigMissing')); return; }
+      const available = projectLabels.map(l => ({ id: l.id, name: l.name }));
+      const current = (detail.labels ?? []).map(l => l.id);
+      const prompt = `You are a GTD assistant. Based on the task below, suggest which labels to assign from the available list. Respond in JSON only: {"label_ids": ["id1","id2"]}. Only suggest labels not already assigned. Return empty array if none fit.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nAvailable labels: ${JSON.stringify(available)}\nAlready assigned: ${JSON.stringify(current)}`;
+      const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
+        body: JSON.stringify({ model: cfg.ai_model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, max_tokens: 128 }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '{}');
+      const ids: string[] = Array.isArray(parsed.label_ids) ? parsed.label_ids : [];
+      if (!ids.length) { showToast('Aucun label suggéré'); return; }
+      for (const id of ids) {
+        const label = projectLabels.find(l => l.id === id);
+        if (label && !detail.labels.some(l => l.id === id)) await toggleLabelById(label);
+      }
+    } catch {
+      showToast(t('cards.aiError'));
+    } finally {
+      setSuggestingLabels(false);
+    }
+  }, [detail, card, projectLabels, api, projectId, t]);
+
   const deleteChecklist = (clId: string) => {
     Alert.alert('Supprimer', 'Supprimer cette checklist ?', [
       { text: 'Annuler', style: 'cancel' },
@@ -792,6 +824,17 @@ export default function CardDetailSheet({
             ))}
             <TouchableOpacity style={s.addChip} onPress={() => setShowLabelPicker(true)} accessibilityRole="button" accessibilityLabel="Add label">
               <Text style={s.addChipText}>+ Label</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[s.wandBtn, (!aiReady || suggestingLabels || !projectLabels.length) && { opacity: 0.4 }]}
+              onPress={suggestLabels}
+              disabled={!aiReady || suggestingLabels || !projectLabels.length}
+              accessibilityLabel="Suggérer labels avec IA"
+            >
+              {suggestingLabels
+                ? <ActivityIndicator size="small" color={BRAND} />
+                : <Ionicons name="sparkles-outline" size={16} color={BRAND} />}
             </TouchableOpacity>
           </View>
 
