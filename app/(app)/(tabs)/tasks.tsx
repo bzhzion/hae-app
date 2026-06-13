@@ -495,9 +495,13 @@ Respond with only valid JSON, no explanation.`;
                     automaticallyAdjustKeyboardInsets={true}
                   >
                     <View style={s.emptyState}>
-                      <Text style={s.emptyEmoji}>
-                        {col.type === 'gtd_inbox' ? '📭' : col.type === 'gtd_urgent' ? '🎉' : '✌️'}
-                      </Text>
+                      <View style={s.emptyIconWrap}>
+                        <Feather
+                          name={col.type === 'gtd_inbox' ? 'inbox' : col.type === 'gtd_urgent' ? 'zap' : 'check-circle'}
+                          size={32}
+                          color="#A8A8A0"
+                        />
+                      </View>
                       <Text style={s.emptyMain}>
                         {col.type === 'gtd_inbox' ? t('tasks.emptyInboxTitle') : col.type === 'gtd_urgent' ? t('tasks.emptyUrgentTitle') : t('tasks.nothingHere')}
                       </Text>
@@ -804,7 +808,7 @@ const s = StyleSheet.create({
   empty:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyScrollContent: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 300 },
   emptyState:     { alignItems: 'center', paddingHorizontal: 32 },
-  emptyEmoji:     { fontSize: 40, marginBottom: 12 },
+  emptyIconWrap:  { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F5F5F0', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyMain:      { fontSize: 18, fontWeight: '700', color: '#1A1A1A', letterSpacing: -0.3, textAlign: 'center' },
   emptySub:       { fontSize: 13, color: '#6B6B63', marginTop: 6, textAlign: 'center', lineHeight: 19 },
 });

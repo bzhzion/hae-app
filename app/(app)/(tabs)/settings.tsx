@@ -347,9 +347,9 @@ export default function ProfileScreen() {
             <Text style={s.aboutLabel}>{t('admin.version')}</Text>
             <Text style={s.aboutValue}>{appVersion}</Text>
           </View>
-          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.fr')}>
+          <TouchableOpacity style={s.aboutRow} onPress={() => Linking.openURL('https://hae.breizhzion.com')}>
             <Text style={s.aboutLabel}>{t('admin.officialSite')}</Text>
-            <Text style={[s.aboutValue, { color: BRAND }]}>hae.breizhzion.fr ›</Text>
+            <Text style={[s.aboutValue, { color: BRAND }]}>hae.breizhzion.com ›</Text>
           </TouchableOpacity>
         </View>
         <Text style={s.copyright}>{t('admin.copyright', { year: new Date().getFullYear() })}</Text>
@@ -359,19 +359,21 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {advancedVisible && (
-          <View style={[s.block, { marginBottom: 8 }]}>
-            <Text style={[s.sectionLabel, { marginBottom: 12 }]}>{t('admin.dangerZone')}</Text>
-            <TouchableOpacity style={[s.dangerRow, { borderBottomWidth: 1, borderColor: '#F0F0EC' }]} onPress={() => {
-              resetOnboarding();
-              router.replace('/onboarding');
-            }}>
-              <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>{t('settings.reviewOnboarding')}</Text>
-              <Text style={s.dangerHint}>S'affichera au prochain démarrage de l'app.</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
-              <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
-              <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
-            </TouchableOpacity>
+          <View style={s.dangerBlock}>
+            <Text style={s.dangerZoneLabel}>{t('admin.dangerZone')}</Text>
+            <View style={s.block}>
+              <TouchableOpacity style={[s.dangerRow, { borderBottomWidth: 1, borderColor: '#F0F0EC' }]} onPress={() => {
+                resetOnboarding();
+                router.replace('/onboarding');
+              }}>
+                <Text style={[s.dangerLabel, { color: '#4A4A44' }]}>{t('settings.reviewOnboarding')}</Text>
+                <Text style={s.dangerHint}>S'affichera au prochain démarrage de l'app.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.dangerRow} onPress={handleResetApp}>
+                <Text style={s.dangerLabel}>{t('admin.resetData')}</Text>
+                <Text style={s.dangerHint}>{t('admin.resetDesc')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -466,6 +468,8 @@ const s = StyleSheet.create({
   copyright:        { fontSize: 11, color: '#8A8A80', textAlign: 'center', marginTop: 10, marginBottom: 4 },
   advancedToggle:   { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 20 },
   advancedToggleText:{ fontSize: 11, fontWeight: '600', color: '#8A8A80', letterSpacing: 0.5 },
+  dangerBlock:      { marginBottom: 8 },
+  dangerZoneLabel:  { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#6B6B63', marginBottom: 10 },
   dangerRow:        { paddingHorizontal: 14, paddingVertical: 12 },
   dangerLabel:      { fontSize: 14, fontWeight: '600', color: BRAND },
   dangerHint:       { fontSize: 12, color: '#6B6B63', marginTop: 3 },

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.48] - 2026-06-14
+
+### Fixed
+- Tasks : états vides remplacent emoji par icônes Feather dans cercle gris (inbox, zap, check-circle)
+- Settings : URL site officiel corrigée en `hae.breizhzion.com`
+- Settings : Zone de Danger restructurée — label séparé du bloc, items correctement paddés
+
 ## [1.3.47] - 2026-06-14
 
 ### Changed
