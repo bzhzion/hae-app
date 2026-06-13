@@ -1552,7 +1552,7 @@ const s = StyleSheet.create({
   commentAuthor:    { fontSize: 12, fontWeight: '700', color: '#2A2A24' },
   commentDate:      { fontSize: 11, color: '#6B6B63' },
   commentText:      { fontSize: 14, color: '#2A2A24', lineHeight: 20 },
-  commentInputRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
+  commentInputRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   commentInputWrap: { flex: 1, position: 'relative' },
   commentInput:     { fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, paddingTop: 10, paddingBottom: 10, paddingLeft: 12, paddingRight: 42, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
   sendBtnInner:     { position: 'absolute', right: 6, bottom: 6, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
