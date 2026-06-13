@@ -37,6 +37,7 @@ const TYPE_ICONS: Record<string, FeatherName> = {
   card_due_soon:     'clock',
   card_moved:        'arrow-right-circle',
   inbox_message:     'inbox',
+  org_invitation:    'users',
   default:           'bell',
 };
 
@@ -63,10 +64,12 @@ interface NotifRowProps {
   onDismiss: (id: string) => void;
   onMarkRead: (n: Notif) => void;
   onCreateCard: (item: Notif) => void;
+  onAcceptInvite: (item: Notif) => void;
+  onDeclineInvite: (item: Notif) => void;
   t: (k: string, opts?: any) => string;
 }
 
-function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, t }: NotifRowProps) {
+function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, onAcceptInvite, onDeclineInvite, t }: NotifRowProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
 
@@ -129,6 +132,34 @@ function NotifRow({ item, showArchived, onDismiss, onMarkRead, onCreateCard, t }
   const archiveScale = translateX.interpolate({ inputRange: [-TRIGGER, -25, 0], outputRange: [1.2, 0.9, 0.5], extrapolate: 'clamp' });
   const createOp     = translateX.interpolate({ inputRange: [0, 20, TRIGGER], outputRange: [0, 0.4, 1], extrapolate: 'clamp' });
   const createScale  = translateX.interpolate({ inputRange: [0, 25, TRIGGER], outputRange: [0.5, 0.9, 1.2], extrapolate: 'clamp' });
+
+  if (item.type === 'org_invitation') {
+    return (
+      <Animated.View style={{ opacity }}>
+        <View style={[s.item, s.inviteItem, !item.is_read && s.itemUnread]}>
+          <View style={[s.iconWrap, { backgroundColor: '#7c3aed18' }]}>
+            <Feather name="users" size={16} color="#7c3aed" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.itemTitle} numberOfLines={1}>{item.title ?? 'Invitation'}</Text>
+            {item.body ? <Text style={s.itemBody2} numberOfLines={2}>{item.body}</Text> : null}
+            <Text style={s.itemTime}>{timeAgo(item.created_at, t)}</Text>
+            {!showArchived && (
+              <View style={s.inviteActions}>
+                <TouchableOpacity style={s.inviteAccept} onPress={() => onAcceptInvite(item)} accessibilityRole="button">
+                  <Feather name="check" size={13} color="#fff" />
+                  <Text style={s.inviteAcceptText}>Accepter</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.inviteDecline} onPress={() => onDeclineInvite(item)} accessibilityRole="button">
+                  <Text style={s.inviteDeclineText}>Refuser</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View style={{ opacity }}>
@@ -269,6 +300,36 @@ export default function NotificationsScreen() {
     } catch {}
   }, [api, setUnreadCount, notifs]);
 
+  const acceptInvite = useCallback(async (notif: Notif) => {
+    if (!notif.url) return;
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const res = await api('POST', `/api/organisations/invitations/${notif.url}/accept`);
+      setNotifs(prev => {
+        const updated = prev.filter(x => x.id !== notif.id);
+        setUnreadCount(updated.filter(x => !x.is_read).length);
+        return updated;
+      });
+      if (res?.organisationId) router.navigate(`/(app)/organisation/${res.organisationId}` as any);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message ?? 'Impossible d\'accepter');
+    }
+  }, [api, setUnreadCount, router]);
+
+  const declineInvite = useCallback(async (notif: Notif) => {
+    if (!notif.url) return;
+    try {
+      await api('POST', `/api/organisations/invitations/${notif.url}/decline`);
+      setNotifs(prev => {
+        const updated = prev.filter(x => x.id !== notif.id);
+        setUnreadCount(updated.filter(x => !x.is_read).length);
+        return updated;
+      });
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message ?? 'Impossible de refuser');
+    }
+  }, [api, setUnreadCount]);
+
   const dismissAll = useCallback(() => {
     Alert.alert(
       t('notifications.archiveAllTitle', { defaultValue: 'Tout archiver' }),
@@ -298,9 +359,11 @@ export default function NotificationsScreen() {
       onDismiss={dismiss}
       onMarkRead={markRead}
       onCreateCard={createCard}
+      onAcceptInvite={acceptInvite}
+      onDeclineInvite={declineInvite}
       t={t}
     />
-  ), [markRead, showArchived, t, dismiss, createCard]);
+  ), [markRead, showArchived, t, dismiss, createCard, acceptInvite, declineInvite]);
 
   return (
     <View style={s.container}>
@@ -391,4 +454,10 @@ const s = StyleSheet.create({
   itemLink:         { fontSize: 11, fontWeight: '700', color: BRAND },
   dot:              { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 6, flexShrink: 0 },
   sep:              { height: 1, backgroundColor: '#F5F5F0', marginLeft: 56 },
+  inviteItem:       { alignItems: 'flex-start' },
+  inviteActions:    { flexDirection: 'row', gap: 8, marginTop: 10 },
+  inviteAccept:     { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#16a34a', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  inviteAcceptText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  inviteDecline:    { alignItems: 'center', justifyContent: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#F5F5F0' },
+  inviteDeclineText:{ color: '#6B6B63', fontSize: 13, fontWeight: '600' },
 });

@@ -16,7 +16,8 @@ const ORG_ROLE_COLORS: Record<string, string> = { owner: '#A00000', admin: '#7c3
 const ORG_ROLES = ['member', 'admin', 'owner'];
 
 interface OrgMember { id: string; name: string; email: string; avatar_url?: string | null; role: string; }
-interface Org { id: string; name: string; description?: string | null; my_role: string | null; members: OrgMember[]; }
+interface PendingInvitation { id: string; email: string; role: string; created_at: number; name?: string | null; }
+interface Org { id: string; name: string; description?: string | null; my_role: string | null; members: OrgMember[]; pending_invitations?: PendingInvitation[]; }
 
 export default function OrgScreen() {
   const insets = useSafeAreaInsets();
@@ -96,12 +97,16 @@ export default function OrgScreen() {
     setAddLoading(true);
     setAddError('');
     try {
-      await api('POST', `/api/organisations/${orgId}/members`, { email, memberRole: 'member' });
+      await api('POST', `/api/organisations/${orgId}/invitations`, { email, memberRole: 'member' });
       setShowAdd(false);
       setAddEmail('');
       await load();
     } catch (e: any) {
-      setAddError(e.message === '404' || e.message?.includes('not found') ? 'Utilisateur introuvable' : e.message);
+      const msg = e.message ?? '';
+      if (msg === '404' || msg.includes('not found') || msg.includes('User not found')) setAddError('Utilisateur introuvable');
+      else if (msg.includes('pending') || msg === '409') setAddError('Invitation déjà envoyée');
+      else if (msg.includes('Already member')) setAddError('Déjà membre');
+      else setAddError(msg || 'Erreur');
     }
     finally { setAddLoading(false); }
   };
@@ -165,7 +170,7 @@ export default function OrgScreen() {
             {canManage && (
               <TouchableOpacity style={s.addMemberBtn} onPress={() => { setAddEmail(''); setAddError(''); setShowAdd(true); }} accessibilityRole="button">
                 <Feather name="user-plus" size={13} color={BRAND} />
-                <Text style={s.addMemberText}>Ajouter</Text>
+                <Text style={s.addMemberText}>Inviter</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -191,6 +196,27 @@ export default function OrgScreen() {
               )}
             </View>
           ))}
+
+          {canManage && (org?.pending_invitations?.length ?? 0) > 0 && (
+            <>
+              <View style={s.divider} />
+              <Text style={[s.sectionLabel, { marginBottom: 10 }]}>EN ATTENTE ({org!.pending_invitations!.length})</Text>
+              {org!.pending_invitations!.map(inv => (
+                <View key={inv.id} style={[s.row, { opacity: 0.75 }]}>
+                  <View style={[s.pendingAvatar]}>
+                    <Feather name="mail" size={14} color="#7c3aed" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowName}>{inv.name ?? inv.email}</Text>
+                    {inv.name ? <Text style={s.rowSub}>{inv.email}</Text> : null}
+                  </View>
+                  <View style={[s.roleBadge, { backgroundColor: '#7c3aed18', borderColor: '#7c3aed55' }]}>
+                    <Text style={[s.roleText, { color: '#7c3aed' }]}>{inv.role}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
 
           <View style={s.divider} />
 
@@ -253,7 +279,7 @@ export default function OrgScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowAdd(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={[s.sheet, { paddingBottom: insets.bottom + 24 }]}>
-              <Text style={s.sheetTitle}>AJOUTER UN MEMBRE</Text>
+              <Text style={s.sheetTitle}>INVITER UN MEMBRE</Text>
               <Text style={s.inputLabel}>EMAIL</Text>
               <TextInput
                 style={s.input}
@@ -312,4 +338,5 @@ const s = StyleSheet.create({
   saveBtn:      { backgroundColor: BRAND, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   saveBtnText:  { color: '#fff', fontSize: 15, fontWeight: '700' },
   errorText:    { fontSize: 13, color: BRAND, marginTop: 4 },
+  pendingAvatar:{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#7c3aed18', alignItems: 'center', justifyContent: 'center' },
 });
