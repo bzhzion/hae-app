@@ -69,7 +69,7 @@ const withShareExtensionTarget = (config) =>
     setBuildSetting('SKIP_INSTALL',              'YES');
 
     // Ajoute les fichiers source au target
-    project.addSourceFile(`${EXT_NAME}/ShareViewController.swift`, { target: target.uuid });
+    project.addSourceFile('ShareViewController.swift', { target: target.uuid }, EXT_NAME);
 
     return mod;
   });
