@@ -40,12 +40,13 @@ const withShareExtensionTarget = (config) =>
     );
 
     // Ajoute au groupe racine (besoin du UUID, pas de l'objet)
-    const groups = project.pbxGroupSection();
+    const pbxGroups = project.hash.project.objects.PBXGroup || {};
     let rootGroupUUID = null;
-    for (const key of Object.keys(groups)) {
+    for (const key of Object.keys(pbxGroups)) {
       if (key.endsWith('_comment')) continue;
-      const g = groups[key];
-      if (g.name === 'CustomTemplate' || g.name === mod.modRequest.projectName) {
+      const g = pbxGroups[key];
+      if (g && (g.name === 'CustomTemplate' || g.name === mod.modRequest.projectName ||
+                g.path === mod.modRequest.projectName)) {
         rootGroupUUID = key;
         break;
       }
