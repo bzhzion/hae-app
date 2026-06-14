@@ -51,7 +51,6 @@
       "expo-secure-store",
       "expo-local-authentication",
       "expo-audio",
-      "expo-video",
       "./plugins/withHaeAppGroup",
       "./plugins/withRemoveFGSPermission"
     ],

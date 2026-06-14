@@ -20,7 +20,6 @@ import { useAiConfig } from '../hooks/useAiConfig';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { showToast } from '../stores/toast';
 import { makeApi } from '../lib/api';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../stores/project';
 import { resolveAiConfig } from '../lib/aiConfig';
@@ -178,14 +177,10 @@ interface Props {
 }
 
 function VideoPlayer({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, p => { p.play(); });
   return (
-    <VideoView
-      player={player}
-      style={{ width: '100%', height: 300 }}
-      contentFit="contain"
-      nativeControls
-    />
+    <View style={{ width: '100%', height: 300, justifyContent: 'center', alignItems: 'center', backgroundColor: '#111' }}>
+      <Text style={{ color: '#fff', fontSize: 14 }}>Lecteur vidéo indisponible</Text>
+    </View>
   );
 }
 
