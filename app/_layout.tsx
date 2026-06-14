@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,7 +18,7 @@ export default function RootLayout() {
     });
   }, []);
 
-  if (!ready) return null;
+  if (!ready) return <View style={{ flex: 1, backgroundColor: '#A00000' }} />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

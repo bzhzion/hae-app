@@ -2,17 +2,21 @@
   "expo": {
     "name": "Hae",
     "slug": "hae-app",
-    "version": "1.3.52",
+    "version": "1.3.53",
     "scheme": "hae",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#A00000"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.breizhzion.hae",
       "entitlements": {
         "com.apple.security.application-groups": [
-          "group.org.breizhzion.hae",
           "group.org.breizhzion.hae"
         ]
       },
@@ -48,7 +52,8 @@
       "expo-audio",
       "expo-video",
       "./plugins/withHaeAppGroup",
-      "./plugins/withShareExtension"
+      "./plugins/withShareExtension",
+      "./plugins/withRemoveFGSPermission"
     ],
     "extra": {
       "router": {},
