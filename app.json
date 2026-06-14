@@ -52,7 +52,6 @@
       "expo-audio",
       "expo-video",
       "./plugins/withHaeAppGroup",
-      "./plugins/withShareExtension",
       "./plugins/withRemoveFGSPermission"
     ],
     "extra": {
