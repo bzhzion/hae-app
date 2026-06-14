@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.54] - 2026-06-14
+
+### Fixed
+- Écran noir au lancement sur iOS TestFlight : `_layout.tsx` retournait `null` pendant le chargement i18n, affichant un fond noir. Remplacé par un fond rouge (#A00000) pour une transition fluide.
+
+## [1.3.53] - 2026-06-14
+
+### Fixed
+- Android : suppression permission FOREGROUND_SERVICE_MEDIA_PLAYBACK (non utilisée, ajoutée automatiquement par expo-audio)
+- iOS : suppression doublon app group dans entitlements
+
 ## [1.3.52] - 2026-06-14
 
 ### Fixed
