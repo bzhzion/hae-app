@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.52] - 2026-06-14
+
+### Fixed
+- Raccourci iOS : utilise `shortcuts://import-shortcut?url=...` au lieu d'un download direct (iOS n'ouvrait pas l'app Raccourcis)
+
 ## [1.3.51] - 2026-06-14
 
 ### Added

@@ -331,7 +331,10 @@ export default function ProfileScreen() {
               {Platform.OS === 'ios' && ingestToken && (
                 <TouchableOpacity
                   style={s.tokenModalShortcutBtn}
-                  onPress={() => Linking.openURL(`${serverUrl}/api/shortcut?token=${encodeURIComponent(ingestToken)}`)}
+                  onPress={() => {
+                    const fileUrl = encodeURIComponent(`${serverUrl}/api/shortcut?token=${encodeURIComponent(ingestToken)}`);
+                    Linking.openURL(`shortcuts://import-shortcut?url=${fileUrl}&name=hae`);
+                  }}
                   accessibilityRole="button"
                 >
                   <Feather name="share" size={15} color={BRAND} />
