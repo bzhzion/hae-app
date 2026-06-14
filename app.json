@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -17,6 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "org.breizhzion.hae",
       "infoPlist": {
+        "NSMicrophoneUsageDescription": "Hae utilise le micro pour la dictée vocale.",
+        "NSPhotoLibraryUsageDescription": "Hae accède à vos photos pour les joindre aux cartes.",
+        "NSCameraUsageDescription": "Hae utilise la caméra pour prendre des photos.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -35,7 +38,8 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-audio"
     ],
     "extra": {
       "router": {},
