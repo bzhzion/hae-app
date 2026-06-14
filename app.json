@@ -16,11 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.breizhzion.hae",
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.org.breizhzion.hae"
-        ]
-      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Hae utilise Face ID pour verrouiller l'application.",
         "ITSAppUsesNonExemptEncryption": false
@@ -51,7 +46,6 @@
       "expo-secure-store",
       "expo-local-authentication",
       "expo-audio",
-      "./plugins/withHaeAppGroup",
       "./plugins/withRemoveFGSPermission"
     ],
     "extra": {

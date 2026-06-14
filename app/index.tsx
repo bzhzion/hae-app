@@ -7,7 +7,6 @@ import { useNotifStore } from '@/stores/notif';
 import { usePrefsStore } from '@/stores/prefs';
 import { useOnboardingStore } from '@/stores/onboarding';
 import { useAnnouncementsStore } from '@/stores/announcements';
-import { saveToAppGroup } from '@/modules/hae-app-group';
 import { saveLanguage } from '@/i18n';
 import i18n from '@/i18n';
 
@@ -119,7 +118,6 @@ export default function Index() {
           setToken(data.accessToken);
           setRefreshToken(data.refreshToken ?? null);
           if (data.user) setUser(data.user);
-          saveToAppGroup(serverUrl, data.accessToken);
         } else {
           logout();
           router.replace(!onboardingDone ? '/onboarding' : '/(auth)/login');
