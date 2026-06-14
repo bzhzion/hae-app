@@ -328,6 +328,16 @@ export default function ProfileScreen() {
                 <Feather name={ingestCopied ? 'check' : 'copy'} size={16} color="#fff" />
                 <Text style={s.tokenModalCopyText}>{ingestCopied ? t('settings.copied') : t('settings.copyToken')}</Text>
               </TouchableOpacity>
+              {Platform.OS === 'ios' && ingestToken && (
+                <TouchableOpacity
+                  style={s.tokenModalShortcutBtn}
+                  onPress={() => Linking.openURL(`${serverUrl}/api/shortcut?token=${encodeURIComponent(ingestToken)}`)}
+                  accessibilityRole="button"
+                >
+                  <Feather name="share" size={15} color={BRAND} />
+                  <Text style={s.tokenModalShortcutText}>Installer raccourci iOS</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={s.tokenModalDoneBtn}
                 onPress={() => { setShowTokenModal(false); setIngestToken(null); }}
@@ -483,6 +493,8 @@ const s = StyleSheet.create({
   tokenModalCopyBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A1A1A', marginHorizontal: 16, borderRadius: 10, paddingVertical: 13 },
   tokenModalCopyBtnDone:{ backgroundColor: '#16a34a' },
   tokenModalCopyText:   { color: '#fff', fontSize: 14, fontWeight: '700' },
+  tokenModalShortcutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 10, borderWidth: 1.5, borderColor: BRAND + '55', borderRadius: 10, paddingVertical: 12 },
+  tokenModalShortcutText:{ fontSize: 14, fontWeight: '600', color: BRAND },
   tokenModalDoneBtn:    { alignItems: 'center', paddingVertical: 16 },
   tokenModalDoneText:   { fontSize: 14, color: '#6B6B63', fontWeight: '600' },
 });

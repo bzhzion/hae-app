@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.51] - 2026-06-14
+
+### Added
+- Raccourci iOS depuis le modal token : bouton "Installer raccourci iOS" (iOS uniquement) ouvre `/api/shortcut?token=` sur le serveur, iOS télécharge et propose d'installer le raccourci dans l'app Raccourcis
+
 ## [1.3.50] - 2026-06-14
 
 ### Fixed
