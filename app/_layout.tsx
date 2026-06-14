@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { I18nextProvider } from 'react-i18next';
 import i18n, { loadSavedLanguage } from '@/i18n';
 import BiometricLock from '@/components/BiometricLock';
@@ -21,7 +20,7 @@ export default function RootLayout() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: '#A00000' }} />;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <I18nextProvider i18n={i18n}>
         <SafeAreaProvider>
           <Stack screenOptions={{ headerShown: false }} />
@@ -29,6 +28,6 @@ export default function RootLayout() {
           <ToastBanner />
         </SafeAreaProvider>
       </I18nextProvider>
-    </GestureHandlerRootView>
+    </View>
   );
 }
