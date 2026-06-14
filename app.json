@@ -17,9 +17,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "org.breizhzion.hae",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Hae utilise le micro pour la dictée vocale.",
-        "NSPhotoLibraryUsageDescription": "Hae accède à vos photos pour les joindre aux cartes.",
-        "NSCameraUsageDescription": "Hae utilise la caméra pour prendre des photos.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -38,8 +35,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      "expo-audio"
+      "expo-router"
     ],
     "extra": {
       "router": {},
