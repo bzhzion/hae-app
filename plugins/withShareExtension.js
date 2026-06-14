@@ -49,13 +49,6 @@ const withShareExtensionTarget = (config) =>
     const target = project.addTarget(EXT_NAME, 'app_extension', EXT_NAME, EXT_BUNDLE_ID);
 
     // Build settings
-    const buildConfig = project.addXCConfigurationList(
-      project,
-      EXT_NAME,
-      'Debug',
-      'Release',
-    );
-
     const setBuildSetting = (key, value) => {
       project.updateBuildProperty(key, value, null, EXT_NAME);
     };
