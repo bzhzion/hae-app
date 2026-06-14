@@ -14,7 +14,7 @@ module.exports = (config) =>
       const dest = path.join(destDir, file);
       if (!fs.existsSync(dest)) {
         fs.copyFileSync(path.join(MODULE_DIR, file), dest);
-        project.addSourceFile(`${mod.modRequest.projectName}/${file}`, {});
+        project.addSourceFile(file, {}, mod.modRequest.projectName);
       }
     }
 

@@ -39,10 +39,19 @@ const withShareExtensionTarget = (config) =>
       EXT_NAME
     );
 
-    // Ajoute au groupe racine
-    const rootGroup = project.pbxGroupByName('CustomTemplate') ?? project.pbxGroupByName(mod.modRequest.projectName);
-    if (rootGroup) {
-      project.addToPbxGroup(extGroup.uuid, rootGroup.uuid ?? Object.keys(rootGroup)[0]);
+    // Ajoute au groupe racine (besoin du UUID, pas de l'objet)
+    const groups = project.pbxGroupSection();
+    let rootGroupUUID = null;
+    for (const key of Object.keys(groups)) {
+      if (key.endsWith('_comment')) continue;
+      const g = groups[key];
+      if (g.name === 'CustomTemplate' || g.name === mod.modRequest.projectName) {
+        rootGroupUUID = key;
+        break;
+      }
+    }
+    if (rootGroupUUID) {
+      project.addToPbxGroup(extGroup.uuid, rootGroupUUID);
     }
 
     // Crée le target
