@@ -8,29 +8,14 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-const fetchBlobUrl = async (url: string, token: string): Promise<string> => {
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) throw new Error('Download failed');
-  const blob = await resp.blob();
-  return URL.createObjectURL(blob);
-};
 import { Ionicons } from '@expo/vector-icons';
 import { useStt } from '../hooks/useStt';
-import { useAiConfig } from '../hooks/useAiConfig';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { showToast } from '../stores/toast';
 import { makeApi } from '../lib/api';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../stores/project';
 import { resolveAiConfig } from '../lib/aiConfig';
-
-function sanitizeMd(text: string): string {
-  return text
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/data:text\/html/gi, '');
-}
 
 const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const PRESET_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#A00000'];
@@ -63,11 +48,7 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const { i18n: calI18n } = useTranslation();
-  const { t: calT } = useTranslation();
-  const monthNames = Array.from({ length: 12 }, (_, i) =>
-    new Intl.DateTimeFormat(calI18n.language, { month: 'long' }).format(new Date(2000, i, 1))
-  );
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const today = new Date();
 
   const isSelected = (d: number) => selDate
@@ -127,16 +108,16 @@ function CalendarPicker({ value, onChange, onClear, onCancel }: {
       <View style={[s.editRow, { marginTop: 16 }]}>
         {selDate && (
           <TouchableOpacity style={s.saveBtn} onPress={() => selDate && onChange(selDate.getTime())}>
-            <Text style={s.saveBtnText}>{calT('common.confirm')}</Text>
+            <Text style={s.saveBtnText}>Confirmer</Text>
           </TouchableOpacity>
         )}
         {value && (
           <TouchableOpacity style={s.cancelBtn} onPress={onClear}>
-            <Text style={[s.cancelBtnText, { color: BRAND }]}>{calT('common.clear')}</Text>
+            <Text style={[s.cancelBtnText, { color: BRAND }]}>Effacer</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-          <Text style={s.cancelBtnText}>{calT('common.cancel')}</Text>
+          <Text style={s.cancelBtnText}>Annuler</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -150,7 +131,6 @@ interface Card {
   id: string; title: string; description?: string;
   due_date?: number | null; stopwatch_total?: number;
   stopwatch_started_at?: number | null; column_id?: string; project_id?: string;
-  checklist_total?: number; checklist_done?: number;
 }
 interface Label { id: string; name: string; color: string; }
 interface Member { id: string; name: string; avatar_url?: string; }
@@ -177,10 +157,14 @@ interface Props {
 }
 
 function VideoPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, p => { p.play(); });
   return (
-    <View style={{ width: '100%', height: 300, justifyContent: 'center', alignItems: 'center', backgroundColor: '#111' }}>
-      <Text style={{ color: '#fff', fontSize: 14 }}>Lecteur vidéo indisponible</Text>
-    </View>
+    <VideoView
+      player={player}
+      style={{ width: '100%', height: 300 }}
+      contentFit="contain"
+      nativeControls
+    />
   );
 }
 
@@ -188,7 +172,7 @@ export default function CardDetailSheet({
   card, expandAnim, token, serverUrl, projectId, insets,
   onClose, onCardUpdated, onCardDeleted, onNeedRefetch,
 }: Props) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const lang = i18n.language ?? 'fr';
   const { currentProjectOwnerType, currentProjectOwnerId } = useProjectStore();
   const [detail, setDetail] = useState<CardDetail | null>(null);
@@ -209,21 +193,16 @@ export default function CardDetailSheet({
     if (text) setDescDraft(prev => prev ? prev + ' ' + text : text);
   }, [sttToggle]);
 
-  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
-
   const improveDesc = useCallback(async () => {
     if (!descDraft.trim() || !detail) return;
     setImprovingDesc(true);
     try {
       const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
       if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
-        showToast(t('cards.aiConfigMissing'));
+        showToast('Config IA manquante — configure dans les réglages');
         return;
       }
-      const labelCtx = (detail.labels ?? []).map((l: Label) => l.name).join(', ') || 'None';
-      const checklistCtx = (detail.checklists ?? []).map(cl => `- ${cl.title}:\n${cl.items.map((i: ChecklistItem) => `  • [${i.is_done ? 'x' : ' '}] ${i.text}`).join('\n')}`).join('\n') || 'None';
-      const commentCtx = comments.map(c => `- ${c.content}`).join('\n') || 'None';
-      const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\nLabels: ${labelCtx}\nChecklists:\n${checklistCtx}\nComments:\n${commentCtx}\n\nCurrent description:\n${descDraft}`;
+      const prompt = `You are a GTD assistant. Improve this task description: make it clearer, more structured and actionable. Keep Markdown. No commentary, return only the improved description. Respond in language code: ${lang}.\n\nTask title: ${detail.title}\n\nCurrent description:\n${descDraft}`;
       const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
@@ -233,12 +212,12 @@ export default function CardDetailSheet({
       const data = await resp.json();
       const improved = data.choices?.[0]?.message?.content?.trim();
       if (improved) setDescDraft(improved);
-    } catch (e: any) {
-      showToast(`AI: ${e?.message ?? String(e)}`);
+    } catch {
+      showToast('Erreur IA');
     } finally {
       setImprovingDesc(false);
     }
-  }, [descDraft, detail, api, projectId, t]);
+  }, [descDraft, detail, api, projectId]);
 
   const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [creatingLabel, setCreatingLabel] = useState(false);
@@ -247,8 +226,6 @@ export default function CardDetailSheet({
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [showDuePicker, setShowDuePicker] = useState(false);
-
-  const { aiReady, sttReady } = useAiConfig();
 
   const [addingChecklist, setAddingChecklist] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
@@ -271,7 +248,9 @@ export default function CardDetailSheet({
   const [uploadingAtt, setUploadingAtt] = useState(false);
   const [loadingAttId, setLoadingAttId] = useState<string | null>(null);
   const [playingAttId, setPlayingAttId] = useState<string | null>(null);
-  const soundRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const soundRef = useRef<null>(null);
+
+  const api = useMemo(() => makeApi(serverUrl, token), [serverUrl, token]);
 
   const startSwTick = useCallback((total: number, startedAt: number) => {
     clearInterval(swInterval.current!);
@@ -296,7 +275,7 @@ export default function CardDetailSheet({
         clearInterval(swInterval.current!);
         setSwDisplay(d.stopwatch_total ?? 0);
       }
-    } catch { showToast(t('common.loadError')); }
+    } catch {}
     finally { setLoading(false); }
   }, [card, api, startSwTick]);
 
@@ -309,7 +288,7 @@ export default function CardDetailSheet({
       setProjectLabels(Array.isArray(labels) ? labels : []);
       setProjectMembers(Array.isArray(proj?.members) ? proj.members : []);
       setProjectColumns(Array.isArray(proj?.columns) ? proj.columns : []);
-    } catch { showToast(t('common.loadError')); }
+    } catch {}
   }, [projectId, api]);
 
   useEffect(() => {
@@ -335,7 +314,7 @@ export default function CardDetailSheet({
       const updated = await api('PATCH', `/api/cards/${card.id}`, fields);
       setDetail(prev => prev ? { ...prev, ...updated } : updated);
       onCardUpdated({ id: card.id, ...updated });
-    } catch { showToast(t('common.networkError')); }
+    } catch (e) { Alert.alert('Erreur', String(e)); }
   };
 
   const saveTitle = async () => {
@@ -360,7 +339,7 @@ export default function CardDetailSheet({
       setNewLabelColor('#6366f1');
       setCreatingLabel(false);
       await toggleLabelById(label);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const toggleLabelById = async (label: Label) => {
@@ -388,7 +367,7 @@ export default function CardDetailSheet({
       }
       setDetail(prev => prev ? { ...prev, labels: newLabels } : prev);
       onCardUpdated({ id: card.id, labels: newLabels } as any);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const toggleMember = async (member: Member) => {
@@ -402,7 +381,7 @@ export default function CardDetailSheet({
         await api('POST', `/api/cards/${card.id}/members`, { userId: member.id });
         setDetail(prev => prev ? { ...prev, members: [...prev.members, member] } : prev);
       }
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const addChecklist = async () => {
@@ -412,7 +391,7 @@ export default function CardDetailSheet({
       setDetail(prev => prev ? { ...prev, checklists: [...prev.checklists, { ...cl, items: [] }] } : prev);
       setNewChecklistTitle('');
       setAddingChecklist(false);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const generateChecklist = useCallback(async () => {
@@ -421,13 +400,11 @@ export default function CardDetailSheet({
     try {
       const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
       if (!cfg?.ai_base_url || !cfg?.ai_api_key) {
-        showToast(t('cards.aiConfigMissing'));
+        showToast('Config IA manquante — configure dans les réglages');
         return;
       }
-      const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ') || 'None';
-      const clCtx = (detail.checklists ?? []).map(cl => `- ${cl.title}: ${cl.items.map((i: ChecklistItem) => i.text).join(', ')}`).join('\n') || 'None';
-      const cmtCtx = comments.map(c => `- ${c.content}`).join('\n') || 'None';
-      const prompt = `You are a GTD assistant. Generate a practical checklist for this task. Respond in language code: ${lang}.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nLabels: ${labelNames}\nExisting checklists:\n${clCtx}\nComments:\n${cmtCtx}\n\nRespond ONLY with a JSON object: {"title":"...","items":["...","..."]}. Between 3 and 8 concise, actionable items. Do not repeat items already in existing checklists.`;
+      const labelNames = (detail.labels ?? []).map((l: Label) => l.name).join(', ');
+      const prompt = `You are a GTD assistant. Generate a practical checklist for this task. Respond in language code: ${lang}.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nLabels: ${labelNames || 'None'}\n\nRespond ONLY with a JSON object: {"title":"...","items":["...","..."]}. Between 3 and 8 concise, actionable items.`;
       const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
@@ -451,45 +428,11 @@ export default function CardDetailSheet({
         return { ...prev, checklists: newChecklists };
       });
     } catch (e: any) {
-      showToast(`AI: ${e?.message ?? String(e)}`);
+      showToast('Erreur IA');
     } finally {
       setGeneratingChecklist(false);
     }
-  }, [detail, card, api, projectId, onCardUpdated, t]);
-
-  const [suggestingLabels, setSuggestingLabels] = useState(false);
-
-  const suggestLabels = useCallback(async () => {
-    if (!detail || !card || !projectLabels.length) return;
-    setSuggestingLabels(true);
-    try {
-      const cfg = await resolveAiConfig(api, projectId, currentProjectOwnerType, currentProjectOwnerId);
-      if (!cfg?.ai_base_url || !cfg?.ai_api_key) { showToast(t('cards.aiConfigMissing')); return; }
-      const available = projectLabels.map(l => ({ id: l.id, name: l.name }));
-      const current = (detail.labels ?? []).map(l => l.id);
-      const clForLabels = (detail.checklists ?? []).map(cl => `- ${cl.title}: ${cl.items.map((i: ChecklistItem) => i.text).join(', ')}`).join('\n') || 'None';
-      const cmtForLabels = comments.map(c => `- ${c.content}`).join('\n') || 'None';
-      const prompt = `You are a GTD assistant. Based on the task below, suggest which labels to assign from the available list. Respond in JSON only: {"label_ids": ["id1","id2"]}. Only suggest labels not already assigned. Return empty array if none fit.\n\nTitle: ${detail.title}\nDescription: ${detail.description || 'None'}\nChecklists:\n${clForLabels}\nComments:\n${cmtForLabels}\nAvailable labels: ${JSON.stringify(available)}\nAlready assigned: ${JSON.stringify(current)}`;
-      const resp = await fetch(`${cfg.ai_base_url}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ai_api_key}` },
-        body: JSON.stringify({ model: cfg.ai_model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, max_tokens: 128 }),
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      const data = await resp.json();
-      const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '{}');
-      const ids: string[] = Array.isArray(parsed.label_ids) ? parsed.label_ids : [];
-      if (!ids.length) { showToast('Aucun label suggéré'); return; }
-      for (const id of ids) {
-        const label = projectLabels.find(l => l.id === id);
-        if (label && !detail.labels.some(l => l.id === id)) await toggleLabelById(label);
-      }
-    } catch (e: any) {
-      showToast(`AI: ${e?.message ?? String(e)}`);
-    } finally {
-      setSuggestingLabels(false);
-    }
-  }, [detail, card, projectLabels, api, projectId, t]);
+  }, [detail, card, api, projectId, onCardUpdated]);
 
   const deleteChecklist = (clId: string) => {
     Alert.alert('Supprimer', 'Supprimer cette checklist ?', [
@@ -520,7 +463,7 @@ export default function CardDetailSheet({
       });
       setNewItemText('');
       setAddingItemFor(null);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const toggleItem = async (clId: string, item: ChecklistItem) => {
@@ -539,7 +482,7 @@ export default function CardDetailSheet({
         });
         return { ...prev, checklists: newChecklists };
       });
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const deleteItem = async (clId: string, itemId: string) => {
@@ -554,7 +497,7 @@ export default function CardDetailSheet({
         onCardUpdated({ id: prev.id, checklist_total: allItems.length, checklist_done: allItems.filter(i => i.is_done).length });
         return { ...prev, checklists: newChecklists };
       });
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const uploadAttachment = async () => {
@@ -564,13 +507,8 @@ export default function CardDetailSheet({
     const asset = result.assets[0];
     setUploadingAtt(true);
     try {
-      if (!asset.mimeType) {
-        showToast(t('cards.fileTypeError'));
-        setUploadingAtt(false);
-        return;
-      }
       const formData = new FormData();
-      formData.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType } as any);
+      formData.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType ?? 'application/octet-stream' } as any);
       const r = await fetch(`${serverUrl}/api/cards/${card.id}/attachments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -579,8 +517,8 @@ export default function CardDetailSheet({
       if (!r.ok) throw new Error(await r.text());
       const att = await r.json();
       setDetail(prev => prev ? { ...prev, attachments: [...(prev.attachments ?? []), att] } : prev);
-    } catch {
-      showToast(t('common.networkError'));
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message ?? 'Upload échoué');
     } finally {
       setUploadingAtt(false);
     }
@@ -588,28 +526,18 @@ export default function CardDetailSheet({
 
   const downloadAttachment = async (att: Attachment) => {
     const url = `${serverUrl}/api/attachments/${att.id}/download`;
+    const localUri = `${FileSystem.cacheDirectory}${att.filename}`;
     try {
-      if (Platform.OS === 'web') {
-        const blobUrl = await fetchBlobUrl(url, token!);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = att.filename;
-        a.click();
-        URL.revokeObjectURL(blobUrl);
+      const dl = await FileSystem.downloadAsync(url, localUri, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(dl.uri, { dialogTitle: att.filename });
       } else {
-        const safeName = att.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '__');
-        const localUri = `${FileSystem.cacheDirectory}${safeName}`;
-        const dl = await FileSystem.downloadAsync(url, localUri, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(dl.uri, { dialogTitle: att.filename });
-        } else {
-          Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
-        }
+        Alert.alert('Téléchargé', `Fichier : ${att.filename}`);
       }
     } catch {
-      showToast(t('cards.downloadError'));
+      Alert.alert('Erreur', 'Téléchargement échoué');
     }
   };
 
@@ -620,7 +548,7 @@ export default function CardDetailSheet({
         try {
           await api('DELETE', `/api/attachments/${attId}`);
           setDetail(prev => prev ? { ...prev, attachments: (prev.attachments ?? []).filter(a => a.id !== attId) } : prev);
-        } catch { showToast(t('common.networkError')); }
+        } catch {}
       }},
     ]);
   };
@@ -639,31 +567,15 @@ export default function CardDetailSheet({
     stopAudio();
     setLoadingAttId(att.id);
     try {
-      let playUri: string;
-      if (Platform.OS === 'web') {
-        playUri = await fetchBlobUrl(`${serverUrl}/api/attachments/${att.id}/download`, token!);
-      } else {
-        const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
-        const info = await FileSystem.getInfoAsync(localUri);
-        if (!info.exists) {
-          await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-        await setAudioModeAsync({ playsInSilentMode: true });
-        playUri = localUri;
+      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+      const info = await FileSystem.getInfoAsync(localUri);
+      if (!info.exists) {
+        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
-      const player = createAudioPlayer({ uri: playUri });
-      soundRef.current = player;
-      player.play();
-      setPlayingAttId(att.id);
-      player.addListener('playbackStatusUpdate', (status) => {
-        if (status.didJustFinish) {
-          soundRef.current = null;
-          setPlayingAttId(null);
-        }
-      });
-    } catch { showToast(t('cards.audioError')); }
+      Alert.alert('Audio', 'Lecture audio non disponible dans cette version.');
+    } catch { Alert.alert('Erreur', 'Lecture impossible'); }
     finally { setLoadingAttId(null); }
   };
 
@@ -671,21 +583,15 @@ export default function CardDetailSheet({
     await stopAudio();
     setLoadingAttId(att.id);
     try {
-      let playUri: string;
-      if (Platform.OS === 'web') {
-        playUri = await fetchBlobUrl(`${serverUrl}/api/attachments/${att.id}/download`, token!);
-      } else {
-        const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
-        const info = await FileSystem.getInfoAsync(localUri);
-        if (!info.exists) {
-          await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-        playUri = localUri;
+      const localUri = `${FileSystem.cacheDirectory}${att.id}_${att.filename}`;
+      const info = await FileSystem.getInfoAsync(localUri);
+      if (!info.exists) {
+        await FileSystem.downloadAsync(`${serverUrl}/api/attachments/${att.id}/download`, localUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
-      setVideoViewerAtt({ ...att, filename: playUri });
-    } catch { showToast(t('cards.videoError')); }
+      setVideoViewerAtt({ ...att, filename: localUri });
+    } catch { Alert.alert('Erreur', 'Chargement impossible'); }
     finally { setLoadingAttId(null); }
   };
 
@@ -701,7 +607,7 @@ export default function CardDetailSheet({
       const c = await api('POST', `/api/cards/${card.id}/comments`, { content: newComment.trim() });
       setComments(prev => [...prev, c]);
       setNewComment('');
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
     finally { setSendingComment(false); }
   };
 
@@ -709,7 +615,7 @@ export default function CardDetailSheet({
     try {
       await api('DELETE', `/api/comments/${commentId}`);
       setComments(prev => prev.filter(c => c.id !== commentId));
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const saveEditComment = async () => {
@@ -731,7 +637,7 @@ export default function CardDetailSheet({
       const now = Date.now();
       startSwTick(swDisplay, now - swDisplay * 1000);
       setDetail(prev => prev ? { ...prev, stopwatch_started_at: now } : prev);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const stopStopwatch = async () => {
@@ -741,7 +647,7 @@ export default function CardDetailSheet({
       const r = await api('POST', `/api/cards/${card.id}/stopwatch/stop`);
       setSwDisplay(r.total);
       setDetail(prev => prev ? { ...prev, stopwatch_started_at: null, stopwatch_total: r.total } : prev);
-    } catch { showToast(t('common.networkError')); }
+    } catch {}
   };
 
   const trashColId = projectColumns.find(c => c.type === 'gtd_trash')?.id ?? null;
@@ -760,7 +666,7 @@ export default function CardDetailSheet({
           }
           onCardDeleted(card.id);
           onClose();
-        } catch { showToast(t('common.networkError')); }
+        } catch (e) { Alert.alert('Erreur', String(e)); }
       }},
     ]);
   };
@@ -777,7 +683,7 @@ export default function CardDetailSheet({
             await api('DELETE', `/api/cards/${card.id}`);
             onCardDeleted(card.id);
             onClose();
-          } catch { showToast(t('common.networkError')); }
+          } catch (e) { Alert.alert('Erreur', String(e)); }
         }},
       ]
     );
@@ -790,7 +696,7 @@ export default function CardDetailSheet({
       await api('PATCH', `/api/cards/${card.id}`, { column_id: columnId });
       onNeedRefetch();
       onClose();
-    } catch { showToast(t('common.networkError')); }
+    } catch (e) { Alert.alert('Erreur', String(e)); }
   };
 
   const fmt = (secs: number) => {
@@ -818,7 +724,7 @@ export default function CardDetailSheet({
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <TouchableOpacity style={s.topAction} onPress={() => setShowMovePicker(true)} accessibilityRole="button">
-          <Text style={s.topActionText}>{t('cards.move')}</Text>
+          <Text style={s.topActionText}>Deplacer</Text>
         </TouchableOpacity>
         {isInTrash ? (
           <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={deleteCardPermanently} accessibilityRole="button">
@@ -826,7 +732,7 @@ export default function CardDetailSheet({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={[s.topAction, s.topActionDanger]} onPress={archiveCard} accessibilityRole="button">
-            <Text style={[s.topActionText, { color: BRAND }]}>{t('cards.archive')}</Text>
+            <Text style={[s.topActionText, { color: BRAND }]}>Archiver</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -855,17 +761,6 @@ export default function CardDetailSheet({
             <TouchableOpacity style={s.addChip} onPress={() => setShowLabelPicker(true)} accessibilityRole="button" accessibilityLabel="Add label">
               <Text style={s.addChipText}>+ Label</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={[s.wandBtn, (!aiReady || suggestingLabels || !projectLabels.length) && { opacity: 0.4 }]}
-              onPress={suggestLabels}
-              disabled={!aiReady || suggestingLabels || !projectLabels.length}
-              accessibilityLabel="Suggérer labels avec IA"
-            >
-              {suggestingLabels
-                ? <ActivityIndicator size="small" color={BRAND} />
-                : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
-            </TouchableOpacity>
           </View>
 
           {/* Title */}
@@ -877,14 +772,13 @@ export default function CardDetailSheet({
                 onChangeText={setTitleDraft}
                 autoFocus
                 multiline
-                maxLength={200}
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={saveTitle}>
-                  <Text style={s.saveBtnText}>{t('common.save')}</Text>
+                  <Text style={s.saveBtnText}>Enregistrer</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingTitle(false)}>
-                  <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
+                  <Text style={s.cancelBtnText}>Annuler</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -901,7 +795,7 @@ export default function CardDetailSheet({
               <Text style={[s.metaText, isDueOverdue && { color: BRAND }]}>
                 {dueDate
                   ? new Date(dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                  : t('cards.dueDate')}
+                  : 'Echeance'}
               </Text>
             </TouchableOpacity>
 
@@ -924,16 +818,10 @@ export default function CardDetailSheet({
                 <Text style={s.sectionPlus}>+</Text>
               </TouchableOpacity>
             </View>
-            <View style={s.membersStack}>
-              {(detail?.members ?? []).map((m) => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={s.memberChip}
-                  onPress={() => toggleMember(m)}
-                  accessibilityLabel={'Remove ' + m.name}
-                  accessibilityRole="button"
-                >
-                  <Text style={s.memberChipText}>{m.name.slice(0, 2).toUpperCase()}</Text>
+            <View style={s.membersRow}>
+              {(detail?.members ?? []).map(m => (
+                <TouchableOpacity key={m.id} style={s.avatar} onPress={() => toggleMember(m)} accessibilityLabel={'Remove ' + m.name} accessibilityRole="button">
+                  <Text style={s.avatarText}>{m.name.slice(0, 2).toUpperCase()}</Text>
                 </TouchableOpacity>
               ))}
               {(detail?.members ?? []).length === 0 && (
@@ -982,21 +870,20 @@ export default function CardDetailSheet({
                   autoFocus
                   placeholder="Ajouter une description (Markdown supporté)..."
                   placeholderTextColor="#A0A098"
-                  maxLength={10000}
                 />
                 <View style={s.editRow}>
                   <TouchableOpacity style={s.saveBtn} onPress={saveDesc}>
-                    <Text style={s.saveBtnText}>{t('common.save')}</Text>
+                    <Text style={s.saveBtnText}>Enregistrer</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingDesc(false)}>
-                    <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
+                    <Text style={s.cancelBtnText}>Annuler</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]} onPress={handleDescMic} disabled={!sttReady} accessibilityLabel="Dicter">
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.micBtnDesc, sttState === 'recording' && s.micBtnDescActive]} onPress={handleDescMic} accessibilityLabel="Dicter">
                     {sttState === 'transcribing'
                       ? <ActivityIndicator size="small" color="#A00000" />
-                      : <Ionicons name="mic" size={14} color={sttState === 'recording' ? '#fff' : (!sttReady ? '#C8C8C0' : '#A00000')} />}
+                      : <Ionicons name="mic" size={14} color={sttState === 'recording' ? '#fff' : '#A00000'} />}
                   </TouchableOpacity>
-                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (!descDraft.trim() || improvingDesc || !aiReady) && { opacity: 0.4 }]} onPress={improveDesc} disabled={!descDraft.trim() || improvingDesc || !aiReady} accessibilityLabel="Améliorer avec IA">
+                  <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (!descDraft.trim() || improvingDesc) && { opacity: 0.4 }]} onPress={improveDesc} disabled={!descDraft.trim() || improvingDesc} accessibilityLabel="Améliorer avec IA">
                     {improvingDesc
                       ? <ActivityIndicator size="small" color={BRAND} />
                       : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
@@ -1008,7 +895,7 @@ export default function CardDetailSheet({
                 {detail?.description ? (
                   <View style={s.descCard}>
                     <Marked
-                      value={sanitizeMd(detail.description)}
+                      value={detail.description}
                       flatListProps={{ scrollEnabled: false, style: { backgroundColor: 'transparent' } }}
                       theme={{ colors: { text: '#3A3A36', link: '#A00000', code: '#E8E8E4', border: '#D8D8D4' } }}
                       styles={{
@@ -1087,7 +974,6 @@ export default function CardDetailSheet({
                       autoFocus
                       returnKeyType="done"
                       onSubmitEditing={() => addItem(cl.id)}
-                      maxLength={500}
                     />
                     <TouchableOpacity style={s.saveSmallBtn} onPress={() => addItem(cl.id)}>
                       <Text style={s.saveSmallText}>OK</Text>
@@ -1097,8 +983,8 @@ export default function CardDetailSheet({
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity style={s.addPill} onPress={() => { setAddingItemFor(cl.id); setNewItemText(''); }}>
-                    <Text style={s.addPillText}>+ Element</Text>
+                  <TouchableOpacity style={s.addSubBtn} onPress={() => { setAddingItemFor(cl.id); setNewItemText(''); }}>
+                    <Text style={s.addSubBtnText}>+ Element</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1117,23 +1003,22 @@ export default function CardDetailSheet({
                 autoFocus
                 returnKeyType="done"
                 onSubmitEditing={addChecklist}
-                maxLength={200}
               />
               <View style={s.editRow}>
                 <TouchableOpacity style={s.saveBtn} onPress={addChecklist}>
-                  <Text style={s.saveBtnText}>{t('common.create')}</Text>
+                  <Text style={s.saveBtnText}>Creer</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cancelBtn} onPress={() => { setAddingChecklist(false); setNewChecklistTitle(''); }}>
-                  <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
+                  <Text style={s.cancelBtnText}>Annuler</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={[s.section, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-              <TouchableOpacity style={s.addPill} onPress={() => setAddingChecklist(true)}>
-                <Text style={s.addPillText}>+ Checklist</Text>
+              <TouchableOpacity style={s.addSubBtn} onPress={() => setAddingChecklist(true)}>
+                <Text style={s.addSubBtnText}>+ Checklist</Text>
               </TouchableOpacity>
-              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, (generatingChecklist || !aiReady) && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist || !aiReady} accessibilityLabel="Générer checklist avec IA">
+              <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={[s.wandBtn, generatingChecklist && { opacity: 0.4 }]} onPress={generateChecklist} disabled={generatingChecklist} accessibilityLabel="Générer checklist avec IA">
                 {generatingChecklist
                   ? <ActivityIndicator size="small" color={BRAND} />
                   : <Ionicons name="color-wand-outline" size={14} color={BRAND} />}
@@ -1245,7 +1130,6 @@ export default function CardDetailSheet({
                       onChangeText={setEditCommentText}
                       multiline
                       autoFocus
-                      maxLength={10000}
                     />
                     <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
                       <TouchableOpacity onPress={() => setEditCommentId(null)}>
@@ -1262,42 +1146,37 @@ export default function CardDetailSheet({
               </View>
             ))}
             <View style={s.commentInputRow}>
+              <TextInput
+                style={s.commentInput}
+                value={newComment}
+                onChangeText={setNewComment}
+                placeholder="Ajouter un commentaire..."
+                placeholderTextColor="#A0A098"
+                multiline
+                accessibilityLabel="Add a comment"
+              />
               <TouchableOpacity
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive, !sttReady && s.aiDisabled]}
+                style={[s.micBtnDesc, sttCommentState === 'recording' && s.micBtnDescActive]}
                 onPress={handleCommentMic}
-                disabled={!sttReady}
                 accessibilityLabel="Dicter commentaire"
               >
                 {sttCommentState === 'transcribing'
                   ? <ActivityIndicator size="small" color={BRAND} />
-                  : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : (!sttReady ? '#C8C8C0' : BRAND)} />}
+                  : <Ionicons name="mic-outline" size={14} color={sttCommentState === 'recording' ? '#fff' : BRAND} />}
               </TouchableOpacity>
-              <View style={s.commentInputWrap}>
-                <TextInput
-                  style={s.commentInput}
-                  value={newComment}
-                  onChangeText={setNewComment}
-                  placeholder="Ajouter un commentaire..."
-                  placeholderTextColor="#A0A098"
-                  multiline
-                  blurOnSubmit={false}
-                  accessibilityLabel="Add a comment"
-                  maxLength={10000}
-                />
-                <TouchableOpacity
-                  style={[s.sendBtnInner, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
-                  onPress={postComment}
-                  disabled={!newComment.trim() || sendingComment}
-                  accessibilityLabel="Send comment"
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: !newComment.trim() || sendingComment }}
-                >
-                  {sendingComment
-                    ? <ActivityIndicator color={BRAND} size="small" accessibilityLabel="Sending" />
-                    : <Ionicons name="arrow-up-circle" size={26} color={newComment.trim() ? BRAND : '#C8C8C0'} />}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[s.sendBtn, (!newComment.trim() || sendingComment) && s.sendBtnOff]}
+                onPress={postComment}
+                disabled={!newComment.trim() || sendingComment}
+                accessibilityLabel="Send comment"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !newComment.trim() || sendingComment }}
+              >
+                {sendingComment
+                  ? <ActivityIndicator color="#fff" size="small" accessibilityLabel="Sending" />
+                  : <Text style={s.sendBtnText}>^</Text>}
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -1308,7 +1187,7 @@ export default function CardDetailSheet({
         <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
           <Text style={s.sheetTitle}>LABELS DU PROJET</Text>
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
-            {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>{t('cards.noLabels')}</Text>}
+            {projectLabels.length === 0 && !creatingLabel && <Text style={s.dimText}>Aucun label. Creer le premier.</Text>}
             {projectLabels.map(l => {
               const active = detail?.labels.some(x => x.id === l.id) ?? false;
               return (
@@ -1330,7 +1209,6 @@ export default function CardDetailSheet({
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={createLabel}
-                  maxLength={50}
                 />
                 <View style={s.colorRow}>
                   {PRESET_COLORS.map(c => (
@@ -1343,10 +1221,10 @@ export default function CardDetailSheet({
                 </View>
                 <View style={[s.editRow, { marginTop: 8 }]}>
                   <TouchableOpacity style={s.saveBtn} onPress={createLabel}>
-                    <Text style={s.saveBtnText}>{t('common.create')}</Text>
+                    <Text style={s.saveBtnText}>Creer</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.cancelBtn} onPress={() => { setCreatingLabel(false); setNewLabelName(''); }}>
-                    <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
+                    <Text style={s.cancelBtnText}>Annuler</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1363,7 +1241,7 @@ export default function CardDetailSheet({
       <Modal visible={showMemberPicker} transparent animationType="slide" onRequestClose={() => setShowMemberPicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMemberPicker(false)} />
         <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>{t('cards.projectMembers')}</Text>
+          <Text style={s.sheetTitle}>Membres du projet</Text>
           {projectMembers.map(m => {
             const active = detail?.members.some(x => x.id === m.id) ?? false;
             return (
@@ -1381,19 +1259,14 @@ export default function CardDetailSheet({
       <Modal visible={showMovePicker} transparent animationType="slide" onRequestClose={() => setShowMovePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowMovePicker(false)} />
         <View style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>{t('cards.moveToColumn')}</Text>
+          <Text style={s.sheetTitle}>Deplacer vers</Text>
           {projectColumns
             .filter(col => col.id !== (detail?.column_id ?? card?.column_id) && col.type !== 'gtd_trash')
-            .map(col => {
-              const typeKey = col.type?.replace(/^gtd_/, '') ?? '';
-              const translated = typeKey ? t(`tasks.${typeKey}`, { defaultValue: '' }) : '';
-              const label = translated || col.name;
-              return (
-                <TouchableOpacity key={col.id} style={s.sheetRow} onPress={() => moveCard(col.id)}>
-                  <Text style={s.sheetRowText}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            .map(col => (
+              <TouchableOpacity key={col.id} style={s.sheetRow} onPress={() => moveCard(col.id)}>
+                <Text style={s.sheetRowText}>{col.name}</Text>
+              </TouchableOpacity>
+            ))}
         </View>
       </Modal>
 
@@ -1401,7 +1274,7 @@ export default function CardDetailSheet({
       <Modal visible={showDuePicker} transparent animationType="slide" onRequestClose={() => setShowDuePicker(false)}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setShowDuePicker(false)} />
         <View style={[s.sheet, s.sheetTall, { paddingBottom: insets.bottom + 20 }]} accessibilityViewIsModal={true}>
-          <Text style={s.sheetTitle}>{t('cards.dueDate').toUpperCase()}</Text>
+          <Text style={s.sheetTitle}>ECHEANCE</Text>
           <CalendarPicker
             value={dueDate ?? null}
             onChange={async (ts) => { await patchCard({ due_date: ts }); setShowDuePicker(false); }}
@@ -1422,7 +1295,7 @@ export default function CardDetailSheet({
               style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
               onPress={() => { const orig = (detail?.attachments ?? []).find(a => a.id === videoViewerAtt.id); if (orig) downloadAttachment(orig); }}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{t('common.download')}</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Telecharger</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1447,7 +1320,7 @@ export default function CardDetailSheet({
               style={{ marginTop: 20, backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 }}
               onPress={() => { if (imageViewerAtt) downloadAttachment(imageViewerAtt); }}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>⬇ {t('common.download')}</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>⬇ Télécharger</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1481,9 +1354,8 @@ const s = StyleSheet.create({
   saveBtnText:      { color: '#fff', fontSize: 13, fontWeight: '700' },
   cancelBtn:        { backgroundColor: '#F0F0EC', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   cancelBtnText:    { color: '#4A4A44', fontSize: 13, fontWeight: '600' },
-  micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center' },
+  micBtnDesc:       { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#A00000', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
   wandBtn:          { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  aiDisabled:       { borderColor: '#C8C8C0', opacity: 0.4 },
   micBtnDescActive: { backgroundColor: '#A00000' },
 
   metaRow:          { flexDirection: 'row', gap: 8, marginBottom: 20 },
@@ -1499,9 +1371,6 @@ const s = StyleSheet.create({
   sectionPlus:      { fontSize: 20, color: BRAND, lineHeight: 22, fontWeight: '300' },
 
   membersRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  membersStack:     { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  memberChip:       { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
-  memberChipText:   { fontSize: 10, fontWeight: '700', color: BRAND },
   avatar:           { width: 36, height: 36, borderRadius: 18, backgroundColor: BRAND + '18', borderWidth: 1.5, borderColor: BRAND + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText:       { fontSize: 12, fontWeight: '700', color: BRAND },
   dimText:          { fontSize: 13, color: '#8A8A80', fontStyle: 'italic' },
@@ -1529,8 +1398,6 @@ const s = StyleSheet.create({
   saveSmallText:    { color: '#fff', fontSize: 12, fontWeight: '700' },
   addSubBtn:        { marginTop: 10, alignSelf: 'flex-start' },
   addSubBtnText:    { fontSize: 13, fontWeight: '600', color: BRAND, letterSpacing: 0.2 },
-  addPill:          { height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND + '55', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  addPillText:      { fontSize: 12, fontWeight: '600', color: BRAND },
   addClInput:       { fontSize: 15, color: '#1A1A1A', borderBottomWidth: 1.5, borderBottomColor: BRAND, paddingVertical: 8, marginBottom: 4 },
 
   attImageWrap:     { marginBottom: 12, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F0F0EC' },
@@ -1547,10 +1414,8 @@ const s = StyleSheet.create({
   commentAuthor:    { fontSize: 12, fontWeight: '700', color: '#2A2A24' },
   commentDate:      { fontSize: 11, color: '#6B6B63' },
   commentText:      { fontSize: 14, color: '#2A2A24', lineHeight: 20 },
-  commentInputRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  commentInputWrap: { flex: 1, position: 'relative' },
-  commentInput:     { fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, paddingTop: 10, paddingBottom: 10, paddingLeft: 12, paddingRight: 42, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
-  sendBtnInner:     { position: 'absolute', right: 6, bottom: 6, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  commentInputRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
+  commentInput:     { flex: 1, fontSize: 14, borderWidth: 1, borderColor: '#EBEBEB', borderRadius: 12, padding: 12, minHeight: 42, maxHeight: 120, textAlignVertical: 'top', backgroundColor: '#fff' },
   sendBtn:          { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   sendBtnOff:       { opacity: 0.35 },
   sendBtnText:      { color: '#fff', fontSize: 18, fontWeight: '700', lineHeight: 22 },

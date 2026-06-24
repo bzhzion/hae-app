@@ -8,11 +8,9 @@ interface AuthUser { id: string; name: string; email: string; role: string; avat
 
 interface AuthState {
   token: string | null;
-  refreshToken: string | null;
   serverUrl: string;
   user: AuthUser | null;
   setToken: (token: string | null) => void;
-  setRefreshToken: (token: string | null) => void;
   setServerUrl: (url: string) => void;
   setUser: (user: AuthUser | null) => void;
   logout: () => void;
@@ -39,7 +37,11 @@ const secureStorage = {
   },
   setItem: async (key: string, value: string) => {
     if (Platform.OS === 'web') return AsyncStorage.setItem(key, value);
-    await SecureStore.setItemAsync(key, value);
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+      await AsyncStorage.setItem(key, value);
+    }
   },
   removeItem: async (key: string) => {
     if (Platform.OS === 'web') return AsyncStorage.removeItem(key);
@@ -54,16 +56,15 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
-      refreshToken: null,
       serverUrl: '',
       user: null,
-      setToken: (token) => set({ token }),
-      setRefreshToken: (refreshToken) => set({ refreshToken }),
+      setToken: (token) => {
+        set({ token });
+      },
       setServerUrl: (serverUrl) => set({ serverUrl }),
       setUser: (user) => set({ user }),
       logout: () => {
-        set({ token: null, refreshToken: null, user: null });
-
+        set({ token: null, user: null });
         import('../stores/project').then(m => m.useProjectStore.getState().clearProject());
       },
     }),

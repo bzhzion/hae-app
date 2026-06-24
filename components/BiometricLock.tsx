@@ -1,11 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, AppState, Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { useTranslation } from 'react-i18next';
 import { useBiometricStore } from '@/stores/biometric';
 
 export default function BiometricLock() {
-  const { t } = useTranslation();
   const { enabled, locked, setLocked, load } = useBiometricStore();
   const appState = useRef(AppState.currentState);
   const authenticating = useRef(false);
@@ -16,12 +14,14 @@ export default function BiometricLock() {
   const authenticate = useCallback(async () => {
     if (authenticating.current) return;
     if (Platform.OS === 'web') { setLocked(false); return; }
+    const has = await LocalAuthentication.hasHardwareAsync();
+    if (!has) { setLocked(false); return; }
     authenticating.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: t('biometric.unlockPrompt'),
-        fallbackLabel: t('biometric.pin'),
-        cancelLabel: t('common.cancel'),
+        promptMessage: 'Déverrouiller Hae',
+        fallbackLabel: 'Code PIN',
+        cancelLabel: 'Annuler',
       });
       if (result.success) setLocked(false);
     } finally {
@@ -49,9 +49,9 @@ export default function BiometricLock() {
   return (
     <View style={s.overlay}>
       <Text style={s.icon}>🔒</Text>
-      <Text style={s.title}>{t('biometric.locked')}</Text>
+      <Text style={s.title}>Hae est verrouillé</Text>
       <TouchableOpacity style={s.btn} onPress={authenticate}>
-        <Text style={s.btnText}>{t('biometric.unlock')}</Text>
+        <Text style={s.btnText}>Déverrouiller</Text>
       </TouchableOpacity>
     </View>
   );

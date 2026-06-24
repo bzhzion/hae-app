@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { showToast } from './toast';
-import i18n from '../i18n';
 
 export interface UserPrefs {
   language?: string;
@@ -27,7 +25,7 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
       if (!r.ok) return;
       const data = await r.json();
       set({ prefs: data, loaded: true });
-    } catch { showToast(i18n.t('common.loadError')); }
+    } catch {}
   },
 
   save: async (serverUrl, token, updates) => {
@@ -38,7 +36,7 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-    } catch { showToast(i18n.t('common.saveError')); }
+    } catch {}
   },
 
   setLocal: (updates) => set(s => ({ prefs: { ...s.prefs, ...updates } })),
