@@ -35,8 +35,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      "expo-audio"
+      "expo-router"
     ],
     "extra": {
       "router": {},
