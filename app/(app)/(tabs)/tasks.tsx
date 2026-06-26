@@ -111,7 +111,7 @@ export default function TasksScreen() {
   const headerRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { token, serverUrl, logout } = useAuthStore();
+  const { token, serverUrl } = useAuthStore();
   const { currentProjectId, currentProjectName, pendingCardId, setPendingCard, refreshKey } = useProjectStore();
   const { state: sttState, toggle: sttToggle } = useStt();
 
@@ -127,7 +127,7 @@ export default function TasksScreen() {
       const res = await fetch(`${serverUrl}/api/projects/${currentProjectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401) { logout(); router.replace('/(auth)/login'); return; }
+      if (res.status === 401) { router.replace('/(auth)/login'); return; }
       const data = await res.json();
       const cols: Column[] = data.columns ?? [];
       const withCards = await Promise.all(
@@ -142,7 +142,7 @@ export default function TasksScreen() {
       setColumns(withCards);
     } catch {}
     finally { setLoading(false); }
-  }, [currentProjectId, serverUrl, token, logout, router]);
+  }, [currentProjectId, serverUrl, token, router]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -208,10 +208,10 @@ export default function TasksScreen() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
       });
-      if (res.status === 401) { logout(); router.replace('/(auth)/login'); return; }
+      if (res.status === 401) { router.replace('/(auth)/login'); return; }
       await fetchProject();
     } catch {}
-  }, [newCardTitle, columns, serverUrl, token, fetchProject, logout, router]);
+  }, [newCardTitle, columns, serverUrl, token, fetchProject, router]);
 
 
   useEffect(() => {

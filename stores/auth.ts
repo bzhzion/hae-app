@@ -20,12 +20,12 @@ const secureStorage = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') return AsyncStorage.getItem(key);
     try {
-      const val = await SecureStore.getItemAsync(key);
+      const val = await SecureStore.getItemAsync(key, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
       // Migration : si rien dans SecureStore, tenter AsyncStorage
       if (val === null) {
         const legacy = await AsyncStorage.getItem(key);
         if (legacy) {
-          await SecureStore.setItemAsync(key, legacy);
+          await SecureStore.setItemAsync(key, legacy, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
           await AsyncStorage.removeItem(key);
           return legacy;
         }
@@ -38,7 +38,7 @@ const secureStorage = {
   setItem: async (key: string, value: string) => {
     if (Platform.OS === 'web') return AsyncStorage.setItem(key, value);
     try {
-      await SecureStore.setItemAsync(key, value);
+      await SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
     } catch {
       await AsyncStorage.setItem(key, value);
     }

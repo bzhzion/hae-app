@@ -44,11 +44,37 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadSavedCreds().then(c => {
+    loadSavedCreds().then(async (c) => {
       if (!c) return;
       if (c.serverUrl) setServerUrl(c.serverUrl);
       if (c.email) setEmail(c.email);
       if (c.password) { setPassword(c.password); setRememberMe(true); }
+
+      if (c.serverUrl && c.email && c.password) {
+        setLoading(true);
+        try {
+          const res = await fetch(`${c.serverUrl}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: c.email, password: c.password }),
+          });
+          const data = await res.json();
+          if (res.ok && data.accessToken) {
+            setToken(data.accessToken);
+            setUser(data.user);
+            fetchPrefs(c.serverUrl, data.accessToken).then(async () => {
+              const prefs = usePrefsStore.getState().prefs;
+              if (prefs?.language) {
+                await i18n.changeLanguage(prefs.language);
+                await saveLanguage(prefs.language as any);
+              }
+            });
+            router.replace('/(app)/(tabs)/tasks');
+            return;
+          }
+        } catch {}
+        setLoading(false);
+      }
     });
   }, []);
 
